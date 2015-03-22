@@ -70,23 +70,6 @@
       runServer: runServer
     };
 
-    // Utils ------------------------------------------------------
-
-    function setGeneralOptionsToDBQuery(dbq, q) {
-      if (q.order && q.order === 'asc') dbq = dbq.sort('date');
-      else dbq = dbq.sort('-date');
-      if (q.limit) dbq = dbq.limit(Number(q.limit));
-      if (q.offset) dbq = dbq.skip(Number(q.offset));
-      if (q.date) dbq = dbq.where('date', new Date(q.date));
-      if (q.year) {
-        dbq = dbq.gte('date', new Date(q.year));
-        dbq = dbq.lte('date', new Date(q.year + '-12-31'));
-      }
-      if (q.ground) dbq = dbq.where('ground', q.ground);
-
-      return dbq;
-    }
-    
     // GET --------------------------------------------------------
 
     function get(req, res) {
@@ -157,14 +140,6 @@
       return result;
     }
 
-    function getRequestBodyAsync(req) {
-      return new Promise(function(resolve, reject) {
-        req.pipe(bl(function(err, data) {
-          err ? reject(err) : resolve(data.toString());
-        }));
-      });
-    }
-    
     function saveGameScore(query) {
       var obj = JSON.parse(query);
       obj.date = new Date(obj.date);
@@ -192,6 +167,31 @@
 
     function savePitchingStats(query) {
       return saveStats('PitchingStats', query);
+    }
+    
+    // Utils ------------------------------------------------------
+
+    function setGeneralOptionsToDBQuery(dbq, q) {
+      if (q.order && q.order === 'asc') dbq = dbq.sort('date');
+      else dbq = dbq.sort('-date');
+      if (q.limit) dbq = dbq.limit(Number(q.limit));
+      if (q.offset) dbq = dbq.skip(Number(q.offset));
+      if (q.date) dbq = dbq.where('date', new Date(q.date));
+      if (q.year) {
+        dbq = dbq.gte('date', new Date(q.year));
+        dbq = dbq.lte('date', new Date(q.year + '-12-31'));
+      }
+      if (q.ground) dbq = dbq.where('ground', q.ground);
+
+      return dbq;
+    }
+    
+    function getRequestBodyAsync(req) {
+      return new Promise(function(resolve, reject) {
+        req.pipe(bl(function(err, data) {
+          err ? reject(err) : resolve(data.toString());
+        }));
+      });
     }
     
   })();

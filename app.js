@@ -81,8 +81,9 @@
           res.end(JSON.stringify(content));
         }).catch(function(err) {
           console.error(err);
-          res.writeHead(status || 500);
-          res.end();
+          res.writeHead(status || 500, {'content-type':
+                                        'text/plain; charset=utf-8'});
+          res.end(err.toString());
         });
       });
       server.listen(port);

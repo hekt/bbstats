@@ -45,13 +45,35 @@
       var server = http.createServer(function(req, res) {
         var parsed = url.parse(req.url, true);
         var result;
+        var status;
 
-        if (req.method === 'POST') {
-          result = post(req, res);
-        } else {
-          result = get(req, res);
+        switch (parsed.pathname) {
+            // GET
+          case '/api/GET/gameScore':
+            result = getGameScore(parsed.query);
+            break;
+          case '/api/GET/battingStats':
+            result = getBattingStats(parsed.query);
+            break;
+          case '/api/GET/pitchingStats':
+            result = getPitchingStats(parsed.query);
+
+            // POST
+          case '/api/POST/saveGameScore':
+            result = getRequestBodyAsync(req).then(saveGameScore);
+            break;
+          case '/api/POST/saveBattingStats':
+            result = getRequestBodyAsync(req).then(saveBattingStats);
+            break;
+          case '/api/POST/savePitchingStats':
+            result = getRequestBodyAsync(req).then(savePitchingStats);
+            break;
+
+            // not found
+          default:
+            status = 404;
+            result = Promise.reject(new Error('Not found'));
         }
-        result = result || Promise.reject(new Error('not found'));
 
         result.then(function(content) {
           res.writeHead(200, {'content-type':
@@ -59,7 +81,7 @@
           res.end(JSON.stringify(content));
         }).catch(function(err) {
           console.error(err);
-          res.writeHead(500, {'content-type': 'text/plain; charset=utf-8'});
+          res.writeHead(status || 500);
           res.end();
         });
       });
@@ -72,27 +94,6 @@
     };
 
     // GET --------------------------------------------------------
-
-    function get(req, res) {
-      var parsed = url.parse(req.url, true);
-      var result;
-      
-      switch (parsed.pathname) {
-        case '/api/GET/gameScore':
-          result = getGameScore(parsed.query);
-          break;
-        case '/api/GET/battingStats':
-          result = getBattingStats(parsed.query);
-          break;
-        case '/api/GET/pitchingStats':
-          result = getPitchingStats(parsed.query);
-          break;
-        default:
-          result = null;
-      }
-
-      return result;
-    }
 
     function getGameScore(query) {
       var dbQuery = db.model('GameScore').find(null, '-_id -__v');
@@ -118,28 +119,6 @@
     }
 
     // POST -------------------------------------------------------
-
-    function post(req, res) {
-      var parsed = url.parse(req.url, true);
-      var reqBody = getRequestBodyAsync(req);
-      var result;
-
-      switch (parsed.pathname) {
-        case '/api/POST/saveGameScore':
-          result = reqBody.then(saveGameScore);
-          break;
-        case '/api/POST/saveBattingStats':
-          result = reqBody.then(saveBattingStats);
-          break;
-        case '/api/POST/savePitchingStats':
-          result = reqBody.then(savePitchingStats);
-          break;
-        default:
-          result = null;
-      }
-
-      return result;
-    }
 
     function saveGameScore(query) {
       var obj = JSON.parse(query);

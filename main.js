@@ -58,8 +58,9 @@
                               'application/json; charset=utf-8'});
           res.end(JSON.stringify(content));
         }).catch(function(err) {
+          console.error(err);
           res.writeHead(500, {'content-type': 'text/plain; charset=utf-8'});
-          res.end(err);
+          res.end();
         });
       });
       server.listen(port);
@@ -125,7 +126,7 @@
 
       switch (parsed.pathname) {
         case '/api/POST/saveGameScore':
-          result= reqBody.then(saveGameScore);
+          result = reqBody.then(saveGameScore);
           break;
         case '/api/POST/saveBattingStats':
           result = reqBody.then(saveBattingStats);
@@ -145,7 +146,6 @@
       obj.date = new Date(obj.date);
       var Model = db.model('GameScore');
       var score = new Model(obj);
-      
       return Promise.resolve(score.save());
     }
 

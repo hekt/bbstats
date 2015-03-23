@@ -61,36 +61,53 @@
       var server = http.createServer(function(req, res) {
         var parsed = url.parse(req.url, true);
 
-        var requestHasBody = req.method === 'POST' || req.method === 'PUT';
-        var getQuery = requestHasBody ?
-              getRequestBodyAsync(req).then(JSON.parse) :
-              Promise.resolve(parsed.query);
+        var authorize = function() {
+          var authRequired = req.method !== 'GET';
+          return authRequired ?
+            authorization(req.headers.authorization) : Promise.resolve();
+        };
 
-        var responseHasBody = req.method === 'GET';
-        var status;
-        var contentType;
-        if (responseHasBody) {
-          status = 200;
-          contentType = {'content-type': 'application/json; charset=utf-8'};
-        } else {
-          status = 204;
-        }
+        var getQuery = function() {
+          var requestHasBody = req.method === 'POST' || req.method === 'PUT';
+          return requestHasBody ? getRequestBodyAsync(req).then(JSON.parse) :
+            Promise.resolve(parsed.query);
+        };
 
         var target = parsed.pathname.replace(/\/api\/([a-z_]+)/, '$1');
         var rooting = rootingSet[req.method][target] || function() {
           return Promise.reject(new error.NotFoundError());
         };
+        
+        var response = function(content) {
+          var responseHasBody = req.method === 'GET';
+          var statusCode;
+          var header;
+          if (responseHasBody) {
+            statusCode = 200;
+            header = {'content-type': 'application/json; charset=utf-8'};
+          } else {
+            statusCode = 204;
+          }
 
-        getQuery.then(rooting).then(function(content) {
-          console.log(rooting);
-          res.writeHead(status, contentType);
+          res.writeHead(statusCode, header);
           res.end(responseHasBody ? JSON.stringify(content) : null);
-        }).catch(function(err) {
-          console.error(err);
-          status = err.statusCode || 500;
-          res.writeHead(status, {'content-type': 'text/plain; charset=utf-8'});
+          console.log('success');
+        };
+
+        var errorResponse = function(err) {
+          var statusCode = err.statusCode || 500;
+          var header = {'content-type': 'text/plain; charset=utf-8'};
+          if (err.statusCode === 401)
+            header['WWW-Authenticate'] = 'Basic realm="secret"';
+
+          res.writeHead(statusCode, header);
           res.end(err.toString());
-        });
+          console.error(err);
+        };
+
+        authorize().then(getQuery).then(rooting)
+          .then(response).catch(errorResponse);
+        
       });
       server.listen(port);
       console.log('Running server on http://localhost:' + port + '/');
@@ -154,6 +171,27 @@
     }
     
     // Utils ------------------------------------------------------
+
+    function authorization(authHeader) {
+      return new Promise(function(resolve, reject) {
+        var err = new error.AuthorizationError();
+        if (!authHeader) reject(err);
+
+        var auth = parseAuthorizationHeader(authHeader);
+        if (auth.scheme !== 'Basic') reject(err);
+        if (!auth.param) reject(err);
+
+        resolve();
+      });
+    }
+
+    function parseAuthorizationHeader(header) {
+      var splited = header.split(' ');
+      return {
+        scheme: splited[0],
+        param: splited[1],
+      };
+    }
 
     function setGeneralOptionsToDBQuery(dbq, q) {
       dbq = (q.order && q.order === 'asc') ?

@@ -24,6 +24,7 @@
 
   // my module
   var db = require('./db');
+  var error = require('./error.js');
 
 
   // ------------------------------------------------------------
@@ -76,19 +77,17 @@
         }
 
         var target = parsed.pathname.replace(/\/api\/([a-z_]+)/, '$1');
-        var rooting = rootingSet[req.method][target];
-        
-        if (!rooting) {
-          status = 404;
-          rooting = Promise.reject(new Error('Not Found'));
-        }
+        var rooting = rootingSet[req.method][target] || function() {
+          return Promise.reject(new error.NotFoundError());
+        };
 
         getQuery.then(rooting).then(function(content) {
+          console.log(rooting);
           res.writeHead(status, contentType);
           res.end(responseHasBody ? JSON.stringify(content) : null);
         }).catch(function(err) {
-          status = status === 404 ? 404 : 500;
           console.error(err);
+          status = err.statusCode || 500;
           res.writeHead(status, {'content-type': 'text/plain; charset=utf-8'});
           res.end(err.toString());
         });

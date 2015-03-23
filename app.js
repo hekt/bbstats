@@ -41,51 +41,55 @@
   // ------------------------------------------------------------
 
   var Server = (function() {
+    var rootingSet = {
+      GET: {
+        game_score: getGameScore,
+        batting_stats: getBattingStats,
+        pitching_stats: getPitchingStats,
+      },
+      DELETE: {},
+      POST: {
+        game_score: createGameScore,
+        batting_stats: createBattingStats,
+        pitching_stats: createPitchingStats,
+      },
+      PUT: {},
+    };
+    
     function runServer(port) {
       var server = http.createServer(function(req, res) {
         var parsed = url.parse(req.url, true);
-        var query = req.method === 'POST' ?
+
+        var requestHasBody = req.method === 'POST' || req.method === 'PUT';
+        var getQuery = requestHasBody ?
               getRequestBodyAsync(req).then(JSON.parse) :
               Promise.resolve(parsed.query);
-        var result;
+
+        var responseHasBody = req.method === 'GET';
         var status;
-
-        switch (parsed.pathname) {
-            // GET
-          case '/api/GET/gameScore':
-            result = query.then(getGameScore);
-            break;
-          case '/api/GET/battingStats':
-            result = query.then(getBattingStats);
-            break;
-          case '/api/GET/pitchingStats':
-            result = query.then(getPitchingStats);
-
-            // POST
-          case '/api/POST/saveGameScore':
-            result = query.then(saveGameScore);
-            break;
-          case '/api/POST/saveBattingStats':
-            result = query.then(saveBattingStats);
-            break;
-          case '/api/POST/savePitchingStats':
-            result = query.then(savePitchingStats);
-            break;
-
-            // not found
-          default:
-            status = 404;
-            result = Promise.reject(new Error('Not found'));
+        var contentType;
+        if (responseHasBody) {
+          status = 200;
+          contentType = {'content-type': 'application/json; charset=utf-8'};
+        } else {
+          status = 204;
         }
 
-        result.then(function(content) {
-          res.writeHead(200, {'content-type':
-                              'application/json; charset=utf-8'});
-          res.end(JSON.stringify(content));
+        var target = parsed.pathname.replace(/\/api\/([a-z_]+)/, '$1');
+        var rooting = rootingSet[req.method][target];
+        
+        if (!rooting) {
+          status = 404;
+          rooting = Promise.reject(new Error('Not Found'));
+        }
+
+        getQuery.then(rooting).then(function(content) {
+          res.writeHead(status, contentType);
+          res.end(responseHasBody ? JSON.stringify(content) : null);
         }).catch(function(err) {
+          status = status === 404 ? 404 : 500;
           console.error(err);
-          res.writeHead(status || 500, {'content-type':
-                                        'text/plain; charset=utf-8'});
+          res.writeHead(status, {'content-type': 'text/plain; charset=utf-8'});
           res.end(err.toString());
         });
       });
@@ -124,14 +128,14 @@
 
     // POST -------------------------------------------------------
 
-    function saveGameScore(obj) {
+    function createGameScore(obj) {
       obj.date = new Date(obj.date);
       var Model = db.model('GameScore');
       var score = new Model(obj);
       return score.save();
     }
 
-    function saveStats(modelName, objs) {
+    function createStats(modelName, objs) {
       var Model = db.model(modelName);
       var promises = objs.map(function(obj) {
         obj.date = new Date(obj.date);
@@ -142,12 +146,12 @@
       return Promise.all(promises);
     }
 
-    function saveBattingStats(objs) {
-      return saveStats('BattingStat', objs);
+    function createBattingStats(objs) {
+      return createStats('BattingStat', objs);
     }
 
-    function savePitchingStats(objs) {
-      return saveStats('PitchingStats', objs);
+    function createPitchingStats(objs) {
+      return createStats('PitchingStats', objs);
     }
     
     // Utils ------------------------------------------------------

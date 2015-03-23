@@ -44,29 +44,32 @@
     function runServer(port) {
       var server = http.createServer(function(req, res) {
         var parsed = url.parse(req.url, true);
+        var query = req.method === 'POST' ?
+              getRequestBodyAsync(req).then(JSON.parse) :
+              Promise.resolve(parsed.query);
         var result;
         var status;
 
         switch (parsed.pathname) {
             // GET
           case '/api/GET/gameScore':
-            result = getGameScore(parsed.query);
+            result = query.then(getGameScore);
             break;
           case '/api/GET/battingStats':
-            result = getBattingStats(parsed.query);
+            result = query.then(getBattingStats);
             break;
           case '/api/GET/pitchingStats':
-            result = getPitchingStats(parsed.query);
+            result = query.then(getPitchingStats);
 
             // POST
           case '/api/POST/saveGameScore':
-            result = getRequestBodyAsync(req).then(saveGameScore);
+            result = query.then(saveGameScore);
             break;
           case '/api/POST/saveBattingStats':
-            result = getRequestBodyAsync(req).then(saveBattingStats);
+            result = query.then(saveBattingStats);
             break;
           case '/api/POST/savePitchingStats':
-            result = getRequestBodyAsync(req).then(savePitchingStats);
+            result = query.then(savePitchingStats);
             break;
 
             // not found
@@ -100,7 +103,7 @@
       var dbQuery = db.model('GameScore').find(null, '-_id -__v');
       dbQuery = setGeneralOptionsToDBQuery(dbQuery, query);
       
-      return Promise.resolve(dbQuery.exec());
+      return dbQuery.exec();
     }
 
     function getBattingStats(query) {
@@ -108,7 +111,7 @@
       dbQuery = setGeneralOptionsToDBQuery(dbQuery, query);
       if (query.player) dbQuery = dbQuery.where('playerId', query.player);
       
-      return Promise.resolve(dbQuery.exec());
+      return dbQuery.exec();
     }
 
     function getPitchingStats(query) {
@@ -116,21 +119,19 @@
       dbQuery = setGeneralOptionsToDBQuery(dbQuery, query);
       if (query.player) dbQuery = dbQuery.where('playerId', query.player);
 
-      return Promise.resolve(dbQuery.exec());
+      return dbQuery.exec();
     }
 
     // POST -------------------------------------------------------
 
-    function saveGameScore(query) {
-      var obj = JSON.parse(query);
+    function saveGameScore(obj) {
       obj.date = new Date(obj.date);
       var Model = db.model('GameScore');
       var score = new Model(obj);
-      return Promise.resolve(score.save());
+      return score.save();
     }
 
-    function saveStats(modelName, query) {
-      var objs = JSON.parse(query);
+    function saveStats(modelName, objs) {
       var Model = db.model(modelName);
       var promises = objs.map(function(obj) {
         obj.date = new Date(obj.date);
@@ -141,19 +142,19 @@
       return Promise.all(promises);
     }
 
-    function saveBattingStats(query) {
-      return saveStats('BattingStat', query);
+    function saveBattingStats(objs) {
+      return saveStats('BattingStat', objs);
     }
 
-    function savePitchingStats(query) {
-      return saveStats('PitchingStats', query);
+    function savePitchingStats(objs) {
+      return saveStats('PitchingStats', objs);
     }
     
     // Utils ------------------------------------------------------
 
     function setGeneralOptionsToDBQuery(dbq, q) {
-      if (q.order && q.order === 'asc') dbq = dbq.sort('date');
-      else dbq = dbq.sort('-date');
+      dbq = (q.order && q.order === 'asc') ?
+        dbq.sort('date') : dbq.sort('-date');
       if (q.limit) dbq = dbq.limit(Number(q.limit));
       if (q.offset) dbq = dbq.skip(Number(q.offset));
       if (q.date) dbq = dbq.where('date', new Date(q.date));

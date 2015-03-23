@@ -5,25 +5,25 @@
   // Constants
   // ------------------------------------------------------------
 
-  const PORT = 52002;
-  const DB_URL = 'mongodb://localhost/bbstats-test';
+  var PORT = 52002;
+  var DB_URI = 'mongodb://localhost/bbstats-test';
   
   // ------------------------------------------------------------
   // Modules
   // ------------------------------------------------------------
 
   // core
-  const http = require('http');
-  const url = require('url');
+  var http = require('http');
+  var url = require('url');
 
   // third party
-  const bl = require('bl');
+  var bl = require('bl');
 
   // polyfill
-  const Promise = require('es6-promise').Promise;
+  var Promise = require('es6-promise').Promise;
 
   // my module
-  const db = require('./db');
+  var db = require('./db');
 
 
   // ------------------------------------------------------------
@@ -31,7 +31,7 @@
   // ------------------------------------------------------------
 
   function main() {
-    db.connect(DB_URL);
+    db.connect(DB_URI);
     Server.runServer(PORT);
   }
   

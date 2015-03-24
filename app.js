@@ -61,36 +61,35 @@
       var server = http.createServer(function(req, res) {
         var parsed = url.parse(req.url, true);
 
-        var authorize = function() {
-          var authRequired = req.method !== 'GET';
-          return authRequired ?
-            authorization(req.headers.authorization) : Promise.resolve();
-        };
+        var authRequired = req.method !== 'GET';
+        var authorize = authRequired ?
+              authorization.bind(null, req.headers.authorization) :
+              Promise.resolve.bind(Promise);
 
-        var getQuery = function() {
-          var requestHasBody = req.method === 'POST' || req.method === 'PUT';
-          return requestHasBody ? getRequestBodyAsync(req).then(JSON.parse) :
-            Promise.resolve(parsed.query);
-        };
+        var requestHasBody = req.method === 'POST' || req.method === 'PUT';
+        var getQuery = requestHasBody ?
+              getRequestBodyAsJsonAsync.bind(null, req) :
+              Promise.resolve.bind(Promise, parsed.query);
 
         var target = parsed.pathname.replace(/\/api\/([a-z_]+)/, '$1');
-        var rooting = rootingSet[req.method][target] || function() {
-          return Promise.reject(new error.NotFoundError());
-        };
+        var rooting = rootingSet[req.method][target] ||
+              Promise.reject.bind(Promise, new error.NotFoundError());
         
         var response = function(content) {
           var responseHasBody = req.method === 'GET';
           var statusCode;
           var header;
+          var body;
           if (responseHasBody) {
             statusCode = 200;
             header = {'content-type': 'application/json; charset=utf-8'};
+            body = JSON.stringify(content);
           } else {
             statusCode = 204;
           }
 
           res.writeHead(statusCode, header);
-          res.end(responseHasBody ? JSON.stringify(content) : null);
+          res.end(body);
           console.log('success');
         };
 
@@ -214,6 +213,10 @@
           err ? reject(err) : resolve(data.toString());
         }));
       });
+    }
+
+    function getRequestBodyAsJsonAsync(req) {
+      return getRequestBodyAsync(req).then(JSON.parse);
     }
     
   })();

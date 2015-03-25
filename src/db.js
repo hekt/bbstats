@@ -35,7 +35,18 @@
     }
   });
   var GameScore = mongoose.model('GameScore', gameScoreSchema);
-  
+
+  var atbatSchema = new Schema({
+    inning: Number,
+    runners: {
+      first: Boolean,
+      second: Boolean,
+      third: Boolean
+    },
+    outCount: Number,
+    result: String,
+    resultKind: String
+  }, {_id: false});
   var battingStatSchema = new Schema({
     playerId: Number,
     date: Date,
@@ -44,17 +55,7 @@
     run: Number,
     sb: Number,
     error: Number,
-    atbats: [{
-      inning: Number,
-      runners: {
-        first: Boolean,
-        second: Boolean,
-        third: Boolean
-      },
-      outCount: Number,
-      result: String,
-      resultKind: String
-    }]
+    atbats: [atbatSchema]
   });
   var BattingStat = mongoose.model('BattingStats', battingStatSchema);
   
@@ -71,6 +72,22 @@
     error: Number
   });
   var PitchingStat = mongoose.model("PitchingStats", pitchingStatSchema);
+
+
+  // authorization ----------------------------------------------
+
+  var nonceSchema = new Schema({
+    nonce: String,
+    uri: String,
+    createAt: {type: Date, expires: 60*5, default: Date.now}
+  });
+  var NonceModel = mongoose.model('Nonce', nonceSchema);
+
+  var userHashSchema = new Schema({
+    user: String,
+    hash: String,
+  });
+  var UserHashModel = mongoose.model('UserHash', userHashSchema);
 
   
   // ------------------------------------------------------------

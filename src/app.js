@@ -14,6 +14,7 @@ var Promise = require('es6-promise').Promise;
 var config = require('./config');
 var db = require('./db');
 var error = require('./error.js');
+var myutil = require('./util.js');
 
 
 // =============================================================
@@ -79,7 +80,7 @@ function getGameScore(query) {
   var dbQuery = db.model('GameScore').find(null, '-_id -__v');
   dbQuery = setGeneralOptionsToDBQuery(dbQuery, query);
   
-  return dbQuery.exec();
+  return myutil.promisize(dbQuery.exec, dbQuery);
 }
 
 function getBattingStats(query) {
@@ -87,7 +88,7 @@ function getBattingStats(query) {
   dbQuery = setGeneralOptionsToDBQuery(dbQuery, query);
   if (query.player) dbQuery = dbQuery.where('playerId', query.player);
   
-  return dbQuery.exec();
+  return myutil.promisize(dbQuery.exec, dbQuery);
 }
 
 function getPitchingStats(query) {
@@ -95,7 +96,7 @@ function getPitchingStats(query) {
   dbQuery = setGeneralOptionsToDBQuery(dbQuery, query);
   if (query.player) dbQuery = dbQuery.where('playerId', query.player);
 
-  return dbQuery.exec();
+  return myutil.promisize(dbQuery.exec, dbQuery);
 }
 
 
@@ -104,14 +105,11 @@ function getPitchingStats(query) {
 // -------------------------------------------------------------
 
 function createGameScore(obj) {
-  return new Promise(function(resolve, reject) {
-    obj.date = new Date(obj.date);
-    var Model = db.model('GameScore');
-    var score = new Model(obj);
-    score.save(function(err) {
-      err ? reject(err) : resolve();
-    });
-  });
+  obj.date = new Date(obj.date);
+  var Model = db.model('GameScore');
+  var score = new Model(obj);
+
+  return myutil.promisize(score.save, score);
 }
 
 function createStats(modelName, objs) {
@@ -119,18 +117,15 @@ function createStats(modelName, objs) {
   var promises = objs.map(function(obj) {
     obj.date = new Date(obj.date);
     var stat = new Model(obj);
-    return new Promise(function(resolve, reject) {
-      stat.save(function(err) {
-        err ? reject(err) : resolve();
-      });
-    });
+    
+    return myutil.promisize(stat.save, stat);
   });
 
   return Promise.all(promises);
 }
 
 function createBattingStats(objs) {
-  return createStats('BattingStat', objs);
+  return createStats('BattingStats', objs);
 }
 
 function createPitchingStats(objs) {
@@ -185,6 +180,18 @@ function getRequestBodyAsync(req) {
   });
 }
 
+function errorCode(err) {
+  if (err.statusCode) return err.statusCode;
+  switch (err.name) {
+    case 'SyntaxError':
+      return 400;
+    case 'ValidationError':
+      return 400;
+    default:
+      return 500;
+  }
+}
+
 function writeResponse(req, res, result) {
   var status, header, content;
   var responseHasBody = req.method === 'GET';
@@ -203,7 +210,7 @@ function writeResponse(req, res, result) {
 }
 
 function writeErrorResponse(req, res, err) {
-  var status = err.statusCode || 500;
+  var status = errorCode(err);
   var header = {'content-type': 'text/plain; charset=utf-8'};
   var content = err.toString() + '\n';
   if (err.statusCode === 401)

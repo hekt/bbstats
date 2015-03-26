@@ -14,62 +14,62 @@
   // ------------------------------------------------------------
 
   var gameScoreSchema = new Schema({
-    date: Date,
-    ground: String,
-    result: String,
+    date: {type: Date, required: true},
+    ground: {type: String, required: true},
+    result: {type: String, required: true},
     score: {
       firstTeam: {
-        name: String,
-        totalRuns: Number,
-        totalErrors: Number,
-        totalHits: Number,
-        runs: [Number]
+        name: {type: String, required: true},
+        totalRuns: {type: Number, required: true},
+        totalErrors: {type: Number, required: true},
+        totalHits: {type: Number, required: true},
+        runs: {type: [Number], required: true},
       },
       secondTeam: {
-        name: String,
-        totalRuns: Number,
-        totalErrors: Number,
-        totalHits: Number,
-        runs: [Number]
-      }
-    }
+        name: {type: String, required: true},
+        totalRuns: {type: Number, required: true},
+        totalErrors: {type: Number, required: true},
+        totalHits: {type: Number, required: true},
+        runs: {type: [Number], required: true},
+      },
+  },
   });
   var GameScore = mongoose.model('GameScore', gameScoreSchema);
 
   var atbatSchema = new Schema({
-    inning: Number,
+    inning: {type: Number, require: true},
     runners: {
-      first: Boolean,
-      second: Boolean,
-      third: Boolean
+      first: {type: Boolean, require: true},
+      second: {type: Boolean, require: true},
+      third: {type: Boolean, require: true},
     },
-    outCount: Number,
-    result: String,
-    resultKind: String
+    outCount: {type: Number, require: true},
+    result: {type: String, require: true},
+    resultKind: {type: String, require: true}
   }, {_id: false});
   var battingStatSchema = new Schema({
-    playerId: Number,
-    date: Date,
-    ground: String,
-    rbi: Number,
-    run: Number,
-    sb: Number,
-    error: Number,
+    playerId: {type: Number, require: true},
+    date: {type: Date, require: true},
+    ground: {type: String, require: true},
+    rbi: {type: Number, require: true},
+    run: {type: Number, require: true},
+    sb: {type: Number, require: true},
+    error: {type: Number, require: true},
     atbats: [atbatSchema]
   });
   var BattingStat = mongoose.model('BattingStats', battingStatSchema);
   
   var pitchingStatSchema = new Schema({
-    playerId: Number,
-    date: Date,
-    ground: String,
-    out: Number,
-    run: Number,
-    erun: Number,
-    so: Number,
-    bb: Number,
-    hit: Number,
-    error: Number
+    playerId: {type: Number, require: true},
+    date: {type: Date, require: true},
+    ground: {type: String, require: true},
+    out: {type: Number, require: true},
+    run: {type: Number, require: true},
+    erun: {type: Number, require: true},
+    so: {type: Number, require: true},
+    bb: {type: Number, require: true},
+    hit: {type: Number, require: true},
+    error: {type: Number, require: true}
   });
   var PitchingStat = mongoose.model("PitchingStats", pitchingStatSchema);
 

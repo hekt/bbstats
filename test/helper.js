@@ -8,6 +8,12 @@ var mocks = require('./mocks');
 
 var helper = {};
 
+helper.toObjects = function(docs) {
+  return docs.map(function(doc) {
+    return doc.toObject();
+  });
+}
+
 helper.viaJSON = function(obj) {
   return JSON.parse(JSON.stringify(obj));
 };

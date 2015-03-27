@@ -84,4 +84,10 @@ mocks.pitchingStatsList = [
     error: 0 },
 ];
 
+mocks.allData = {
+  score: mocks.gameScoreList[0],
+  batting: mocks.battingStatsList,
+  pitching: mocks.pitchingStatsList,
+}
+
 module.exports = mocks;

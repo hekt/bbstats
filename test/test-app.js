@@ -9,6 +9,7 @@ var should = require('should');
 var Stream = require('stream');
 var Promise = require('es6-promise').Promise;
 var httpMocks = require('node-mocks-http');
+var strftime = require('strftime');
 
 // my test modules
 var init = require('./init');
@@ -35,8 +36,7 @@ init(dbUri, dbModels);
 describe('app.js', function() {
   describe('app.api with GET invalid url', function() {
     it('invalid url responses 404', function(done) {
-      var expectedStatus = 404;
-      var expectedContent = 'NotFoundError: Not Found\n';
+      var expected = 404;
       
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
@@ -45,30 +45,16 @@ describe('app.js', function() {
       });
       
       app.api(req, res).then(function() {
-        res.statusCode.should.equal(expectedStatus);
-        res._getData().should.equal(expectedContent);
+        res.statusCode.should.equal(expected);
         done();
       }).catch(done);
     });
   });
 
   describe('app.api with GET /api/game_score', function() {
-    it('responses 200', function(done) {
+    it('responses scores with 200', function(done) {
       var expectedStatus = 200;
-
-      var res = httpMocks.createResponse();
-      var req = httpMocks.createRequest({
-        method: 'GET',
-        url: '/api/game_score',
-      });
-
-      app.api(req, res).then(function() {
-        res.statusCode.should.equal(expectedStatus);
-        done();
-      }).catch(done);
-    });
-    it('responses scores', function(done) {
-      var expected = helper.viaJSON(mocks.gameScoreList.slice(0, 2));
+      var expectedContent = helper.viaJSON(mocks.gameScoreList.slice(0, 2));
 
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
@@ -79,7 +65,8 @@ describe('app.js', function() {
       helper.saveScores(2).then(app.api.bind(null, req, res))
         .then(function() {
           var data = JSON.parse(res._getData());
-          data.should.eql(expected);
+          res.statusCode.should.equal(expectedStatus);
+          data.should.eql(expectedContent);
           done();
         })
         .catch(done);
@@ -157,22 +144,9 @@ describe('app.js', function() {
   });
 
   describe('app.api with GET /api/batting_stats', function() {    
-    it('responses 200', function(done) {
-      var expected = 200;
-
-      var res = httpMocks.createResponse();
-      var req = httpMocks.createRequest({
-        method: 'GET',
-        url: '/api/batting_stats',
-      });
-
-      app.api(req, res).then(function() {
-        res.statusCode.should.equal(expected);
-        done();
-      }).catch(done);
-    });
-    it('responses stats', function(done) {
-      var expected = helper.viaJSON(mocks.battingStatsList);
+    it('responses stats with 200', function(done) {
+      var expectedStatus = 200;
+      var expectedContent = helper.viaJSON(mocks.battingStatsList);
 
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
@@ -183,7 +157,8 @@ describe('app.js', function() {
       helper.saveStats('BattingStats', 2).then(app.api.bind(null, req, res))
         .then(function() {
           var data = JSON.parse(res._getData());
-          data.should.eql(expected);
+          res.statusCode.should.equal(expectedStatus);
+          data.should.eql(expectedContent);
           done();
         }).catch(done);
     });
@@ -207,8 +182,9 @@ describe('app.js', function() {
   });
 
   describe('app.api with GET /api/pitching_stats', function() {    
-    it('responses stats', function(done) {
-      var expected = helper.viaJSON(mocks.pitchingStatsList);
+    it('responses stats with 200', function(done) {
+      var expectedStatus = 200;
+      var expectedContent = helper.viaJSON(mocks.pitchingStatsList);
 
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
@@ -219,19 +195,20 @@ describe('app.js', function() {
       helper.saveStats('PitchingStats', 2).then(app.api.bind(null, req, res))
         .then(function() {
           var data = JSON.parse(res._getData());
-          data.should.eql(expected);
+          res.statusCode.should.equal(expectedStatus);
+          data.should.eql(expectedContent);
           done();
         }).catch(done);
     });
   });
 
-  describe('app.api with Unauthorized POST', function() {
+  describe('app.api with Unauthorized PUT', function() {
     it('responses 401 when no authorization header', function(done) {
       var expected = 401;
 
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
-        method: 'POST',
+        method: 'PUT',
         url: 'unrelated',
       });
 
@@ -245,7 +222,7 @@ describe('app.js', function() {
 
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
-        method: 'POST',
+        method: 'PUT',
         url: 'unrelated',
         headers: {'Authorization': 'foo bar'},
       });
@@ -260,7 +237,7 @@ describe('app.js', function() {
 
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
-        method: 'POST',
+        method: 'PUT',
         url: 'unrelated',
         headers: {'Authorization': 'Token invalidtoken'},
       });
@@ -272,15 +249,14 @@ describe('app.js', function() {
     });
   });
 
-  describe('app.api with Authorized POST invalid url', function() {
+  describe('app.api with Authorized PUT invalid url', function() {
     it('responses 404', function(done) {
-      var expectedStatus = 404;
-      var expectedContent = 'NotFoundError: Not Found\n';
+      var expected = 404;
 
       AccessToken.issue().then(function(token) {
         var res = httpMocks.createResponse();
         var req = httpMocks.createRequest({
-          method: 'POST',
+          method: 'PUT',
           url: '/path/to/invalid/url',
           headers: {authorization: 'Token ' + token},
         });
@@ -288,170 +264,111 @@ describe('app.js', function() {
 
         var api = app.api.bind(app, req, res);
 
-        app.api(req, res).then(function() {
-          res.statusCode.should.equal(expectedStatus);
-          res._getData().should.equal(expectedContent);
+        return app.api(req, res).then(function() {
+          res.statusCode.should.equal(expected);
           done();
-        }).catch(done);
-      });
+        });
+      }).catch(done);
     });
   });
 
-  describe('app.api with Authorized POST /api/game_score', function() {    
-    it('responses 204', function(done) {
-      var data = JSON.stringify(mocks.gameScoreList[0]);
-      var expectedStatus = 204;
-      var expectedContent = '';
-      
-      AccessToken.issue().then(function(token) {
-        var res = httpMocks.createResponse();
-        var req = httpMocks.createRequest({
-          method: 'POST',
-          url: '/api/game_score',
-          headers: {authorization: 'Token ' + token},
-        });
-        req.pipe = helper.createPipeMock(data);
-        
-        app.api(req, res).then(function() {
-          res.statusCode.should.equal(expectedStatus);
-          res._getData().should.equal(expectedContent);
-          done();
-        }).catch(done);
-      });
-    });
-    it('saves data if receives valid data', function(done) {
-      var data = JSON.stringify(mocks.gameScoreList[0]);
-      var expected = mocks.gameScoreList.slice(0, 1);
-
-      AccessToken.issue().then(function(token) {
-        var res = httpMocks.createResponse();
-        var req = httpMocks.createRequest({
-          method: 'POST',
-          url: '/api/game_score',
-          headers: {authorization: 'Token ' + token},
-        });
-        req.pipe = helper.createPipeMock(data);
-
-        app.api(req, res).then(function() {
-          return helper.findOne('GameScore');
-        }).then(function(doc) {
-          doc.toObject().should.eql(mocks.gameScoreList[0]);
-          done();
-        }).catch(done);
-      });
-    });
+  describe('app.api with Authorized PUT /api/score', function() {
     it('returns 400 if receives no data', function(done) {
-      var data = null;
+      var data = '';
       var expected = 400;
 
       AccessToken.issue().then(function(token) {
         var res = httpMocks.createResponse();
         var req = httpMocks.createRequest({
-          method: 'POST',
-          url: '/api/game_score',
+          method: 'PUT',
+          url: '/api/score',
           headers: {authorization: 'Token ' + token},
         });
         req.pipe = helper.createPipeMock(data);
 
-        app.api(req, res).then(function() {
+        return app.api(req, res).then(function() {
           res.statusCode.should.equal(expected);
           done();
-        }).catch(done);
-      });
+        });
+      }).catch(done);
     });
     it('returns 400 if receives invalid data', function(done) {
-      var data = JSON.stringify({});
+      var data = 'invalid';
       var expected = 400;
 
       AccessToken.issue().then(function(token) {
         var res = httpMocks.createResponse();
         var req = httpMocks.createRequest({
-          method: 'POST',
-          url: '/api/game_score',
+          method: 'PUT',
+          url: '/api/score',
           headers: {authorization: 'Token ' + token},
         });
         req.pipe = helper.createPipeMock(data);
 
-        app.api(req, res).then(function() {
+        return app.api(req, res).then(function() {
           res.statusCode.should.equal(expected);
           done();
-        }).catch(done);
-      });
+        });
+      }).catch(done);
     });
-  });
-
-  describe('app.api with Authorized POST /api/batting_stats', function() {    
-    it('responses 204', function(done) {
-      var data = JSON.stringify(mocks.battingStatsList);
-      var expectedStatus = 204;
-      var expectedContent = '';
+    it('returns 201 and Location header', function(done) {
+      var data = JSON.stringify(mocks.allData);
+      var expectedStatus = 201;
+      var expectedLocation = 'http://localhost/score/' +
+            strftime('%F', mocks.allData.score.date);
 
       AccessToken.issue().then(function(token) {
         var res = httpMocks.createResponse();
         var req = httpMocks.createRequest({
-          method: 'POST',
-          url: '/api/batting_stats',
+          method: 'PUT',
+          url: 'http://localhost/api/score',
           headers: {authorization: 'Token ' + token},
         });
         req.pipe = helper.createPipeMock(data);
 
-        app.api(req, res).then(function() {
+        return app.api(req, res).then(function() {
           res.statusCode.should.equal(expectedStatus);
-          res._getData().should.equal(expectedContent);
+          res.getHeader('Location').should.equal(expectedLocation);
           done();
-        }).catch(done);
-      });
+        });
+      }).catch(done);
     });
     it('saves data if receives valid data', function(done) {
-      var data = JSON.stringify(mocks.battingStatsList);
-      var expected = mocks.battingStatsList;
+      var data = JSON.stringify(mocks.allData);
+      var expectedScore = helper.viaJSON(mocks.allData.score);
+      var expectedBattingStats = helper.viaJSON(mocks.allData.batting);
+      var expectedPitchingStats = helper.viaJSON(mocks.allData.pitching);
 
       AccessToken.issue().then(function(token) {
         var res = httpMocks.createResponse();
         var req = httpMocks.createRequest({
-          method: 'POST',
-          url: '/api/batting_stats',
+          method: 'PUT',
+          url: '/api/score',
           headers: {authorization: 'Token ' + token},
         });
         req.pipe = helper.createPipeMock(data);
 
-        app.api(req, res).then(function() {
-          return helper.findAll('BattingStats');
-        }).then(function(docs) {
-          var objs = docs.map(function(doc) {
-            return doc.toObject();
+        return app.api(req, res).then(function() {
+          var promises = [];
+          promises.push(function() {
+            return helper.findOne('GameScore').then(function(doc) {
+              doc.toObject().should.eql(expectedScore);
+            });
           });
-          objs.should.eql(expected);
-          done();
-        }).catch(done);
-      });
-    });
-  });
+          promises.push(function() {
+            return helper.findAll('BattingStats').then(function(docs) {
+              helper.toObjects(docs).should.eql(expectedBattingStats);
+            });
+          });
+          promises.push(function() {
+            return helper.findAll('Pitchingstats').then(function(docs) {
+              helper.toObjects(docs).should.eql(expectedPitchingStats);
+            });
+          });
 
-  describe('app.api with Authorized POST /api/pitching_stats', function() {    
-    it('saves data if receives valid data', function(done) {
-      var data = JSON.stringify(mocks.pitchingStatsList);
-      var expected = mocks.pitchingStatsList;
-      
-      AccessToken.issue().then(function(token) {
-        var res = httpMocks.createResponse();
-        var req = httpMocks.createRequest({
-          method: 'POST',
-          url: '/api/pitching_stats',
-          headers: {authorization: 'Token ' + token},
+          return Promise.all(promises).then(function() { done(); });
         });
-        req.pipe = helper.createPipeMock(data);
-
-        app.api(req, res).then(function() {
-          return helper.findAll('PitchingStats');
-        }).then(function(docs) {
-          var objs = docs.map(function(doc) {
-            return doc.toObject();
-          });
-          objs.should.eql(expected);
-          done();
-        }).catch(done);
-      });
+      }).catch(done);
     });
   });
   

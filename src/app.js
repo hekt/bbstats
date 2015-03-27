@@ -6,6 +6,7 @@
 
 var url = require('url');
 var bl = require('bl');
+var strftime = require('strftime');
 
 // polyfill
 var Promise = require('es6-promise').Promise;
@@ -39,7 +40,6 @@ var apiActionSet = {
     batting_stats: getBattingStats,
     pitching_stats: getPitchingStats,
   },
-  DELETE: {},
   POST: {
     game_score: createGameScore,
     batting_stats: createBattingStats,
@@ -110,22 +110,24 @@ function getPitchingStats(query) {
 // ------------------------------------------------------------
 
 function updateData(obj) {
+  var dateStr = obj.score.date;
   var promises = [
     saveGameScore(obj.score),
     saveStats('BattingStats', obj.batting),
     saveStats('PitchingStats', obj.pitching),
   ];
 
-  return Promise.all(promises);
+  return Promise.all(promises).then(function() {
+    return new Date(dateStr);
+  });
 }
 
 function saveGameScore(obj) {
   obj.date = new Date(obj.date);
   var Model = db.model('GameScore');
   var conds = {'date': obj.date};
-  var doc = new Model(obj);
   var opts = {'upsert': true};
-  var query = Model.findOneAndUpdate.bind(Model, conds, doc, opts);
+  var query = Model.findOneAndUpdate.bind(Model, conds, obj, opts);
 
   return promisize(query);
 }
@@ -135,9 +137,8 @@ function saveStats(modelName, objs) {
   var promises = objs.map(function(obj) {
     obj.date = new Date(obj.date);
     var conds = {'date': obj.date, 'playerId': obj.playerId};
-    var doc = new Model(obj);
     var opts = {'upsert': true};
-    var query = Model.findOneAndUpdate.bind(Model, conds, doc, opts);
+    var query = Model.findOneAndUpdate.bind(Model, conds, obj, opts);
 
     return promisize(query);
   });
@@ -241,10 +242,17 @@ function errorCode(err) {
 function writeResponse(req, res, result) {
   var status, header, content;
   var responseHasBody = req.method === 'GET';
+  var resourcesCreated = req.method === 'PUT';
   if (responseHasBody) {
     status = 200;
     header = {'content-type': 'application/json; charset=utf-8'};
     content = JSON.stringify(result) + '\n';
+  } else if (resourcesCreated) {
+    var u = url.parse(req.url, true);
+    var d = strftime('%F', result);
+    var loc = u.protocol + '//' + u.host + '/score/' + d;
+    status = 201;
+    header = {'Location': loc};
   } else {
     status = 204;
   }

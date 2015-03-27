@@ -15,6 +15,7 @@ var config = require('./config');
 var db = require('./db');
 var error = require('./error.js');
 var myutil = require('./util.js');
+var AccessToken = require('./auth').AccessToken;
 
 
 // =============================================================
@@ -48,7 +49,7 @@ var apiActionSet = {
 
 function api(req, res) {
   var urlObj = url.parse(req.url, true);
-
+  
   var authorize = function() {
     var authRequired = req.method !== 'GET';
     return  authRequired ?
@@ -67,7 +68,8 @@ function api(req, res) {
       Promise.reject(new error.NotFoundError());
   };
 
-  return action().then(writeResponse.bind(null, req, res))
+  return authorize().then(action)
+    .then(writeResponse.bind(null, req, res))
     .catch(writeErrorResponse.bind(null, req, res));
 }
 
@@ -138,17 +140,15 @@ function createPitchingStats(objs) {
 // -------------------------------------------------------------
 
 function authorization(authHeader) {
-  return Promise.resolve();
-  // return new Promise(function(resolve, reject) {
-  //   var err = new error.AuthorizationError();
-  //   if (!authHeader) reject(err);
-
-  //   var auth = parseAuthorizationHeader(authHeader);
-  //   if (auth.scheme !== 'Basic') reject(err);
-  //   if (!auth.param) reject(err);
-
-  //   resolve();
-  // });
+  var err = new error.AuthorizationError();
+  if (!authHeader || typeof authHeader !== 'string')
+    return Promise.reject(err);
+  return Promise.resolve(authHeader)
+    .then(parseAuthorizationHeader)
+    .then(function(auth) {
+      if (auth.scheme !== 'Token') return Promise.reject(err);
+      return AccessToken.verify(auth.param);
+    });
 }
 
 function parseAuthorizationHeader(header) {

@@ -19,7 +19,7 @@ var config = require('./config');
 if (!db.connection.readyState) db.connect(config.dbUri);
 
 var server = http.createServer(function(res, req) {
-  app.api(res, req).then(console.log);
+  app.api(res, req);
 });
 server.listen(config.port);
 console.log('Running server at http://localhost:' + config.port + '/\n');

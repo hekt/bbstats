@@ -32,6 +32,12 @@ Promise.prototype.pierce = function(func) {
   });
 };
 
+Promise.prototype.pass = function(arg) {
+  return this.then(function() {
+    return arg;
+  });
+};
+
 
 // ------------------------------------------------------------
 // myutil

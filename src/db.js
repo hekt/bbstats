@@ -27,7 +27,7 @@ if (db.connection.readyState === 0) {
 // ------------------------------------------------------------
 
 var gameScoreSchema = new Schema({
-  date: {type: Date, required: true},
+  date: {type: Date, required: true, unique: true},
   ground: {type: String, required: true},
   result: {type: String, required: true},
   score: {

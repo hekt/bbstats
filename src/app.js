@@ -15,6 +15,7 @@ var config = require('./config');
 var db = require('./db');
 var error = require('./error.js');
 var myutil = require('./util.js');
+var promisize = myutil.promisize;
 var AccessToken = require('./auth').AccessToken;
 
 
@@ -44,7 +45,9 @@ var apiActionSet = {
     batting_stats: createBattingStats,
     pitching_stats: createPitchingStats,
   },
-  PUT: {},
+  PUT: {
+    score: updateData,
+  },
 };
 
 function api(req, res) {
@@ -99,6 +102,47 @@ function getPitchingStats(query) {
   if (query.player) dbQuery = dbQuery.where('playerId', query.player);
 
   return myutil.promisize(dbQuery.exec, dbQuery);
+}
+
+
+// ------------------------------------------------------------
+// PUT
+// ------------------------------------------------------------
+
+function updateData(obj) {
+  var promises = [
+    saveGameScore(obj.score),
+    saveStats('BattingStats', obj.batting),
+    saveStats('PitchingStats', obj.pitching),
+  ];
+
+  return Promise.all(promises);
+}
+
+function saveGameScore(obj) {
+  obj.date = new Date(obj.date);
+  var Model = db.model('GameScore');
+  var conds = {'date': obj.date};
+  var doc = new Model(obj);
+  var opts = {'upsert': true};
+  var query = Model.findOneAndUpdate.bind(Model, conds, doc, opts);
+
+  return promisize(query);
+}
+
+function saveStats(modelName, objs) {
+  var Model = db.model(modelName);
+  var promises = objs.map(function(obj) {
+    obj.date = new Date(obj.date);
+    var conds = {'date': obj.date, 'playerId': obj.playerId};
+    var doc = new Model(obj);
+    var opts = {'upsert': true};
+    var query = Model.findOneAndUpdate.bind(Model, conds, doc, opts);
+
+    return promisize(query);
+  });
+
+  return Promise.all(promises);
 }
 
 
@@ -187,6 +231,8 @@ function errorCode(err) {
       return 400;
     case 'ValidationError':
       return 400;
+    case 'MongoError':
+      if (err.code === 11000) return 409;
     default:
       return 500;
   }
@@ -210,15 +256,15 @@ function writeResponse(req, res, result) {
 }
 
 function writeErrorResponse(req, res, err) {
-  var status = errorCode(err);
+  var data = error.toHttpData(err);
+  var status = data.statusCode;
   var header = {'content-type': 'text/plain; charset=utf-8'};
-  var content = err.toString() + '\n';
-  if (err.statusCode === 401)
-    header['WWW-Authenticate'] = 'Basic realm="secret"';
+  var content = data.message + '\n';
 
   res.writeHead(status, header);
   res.end(content);
 
+  if (data.statusCode === 500) console.error(err);
   return err;
 }
 

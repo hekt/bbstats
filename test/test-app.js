@@ -35,7 +35,7 @@ init(dbUri, dbModels);
 
 describe('app.js', function() {
   describe('app.api with GET invalid url', function() {
-    it('invalid url responses 404', function(done) {
+    it('sends 404', function(done) {
       var expected = 404;
       
       var res = httpMocks.createResponse();
@@ -52,8 +52,9 @@ describe('app.js', function() {
   });
 
   describe('app.api with GET /api/game_score', function() {
-    it('responses scores with 200', function(done) {
+    it('sends 200 with json', function(done) {
       var expectedStatus = 200;
+      var expectedType = 'application/json; charset=utf-8';
       var expectedContent = helper.viaJSON(mocks.gameScoreList.slice(0, 2));
 
       var res = httpMocks.createResponse();
@@ -66,6 +67,7 @@ describe('app.js', function() {
         .then(function() {
           var data = JSON.parse(res._getData());
           res.statusCode.should.equal(expectedStatus);
+          res.getHeader('content-type').should.equal(expectedType);
           data.should.eql(expectedContent);
           done();
         })
@@ -144,8 +146,9 @@ describe('app.js', function() {
   });
 
   describe('app.api with GET /api/batting_stats', function() {    
-    it('responses stats with 200', function(done) {
+    it('sends 200 with json', function(done) {
       var expectedStatus = 200;
+      var expectedType = 'application/json; charset=utf-8';
       var expectedContent = helper.viaJSON(mocks.battingStatsList);
 
       var res = httpMocks.createResponse();
@@ -158,6 +161,7 @@ describe('app.js', function() {
         .then(function() {
           var data = JSON.parse(res._getData());
           res.statusCode.should.equal(expectedStatus);
+          res.getHeader('content-type').should.equal(expectedType);
           data.should.eql(expectedContent);
           done();
         }).catch(done);
@@ -182,8 +186,9 @@ describe('app.js', function() {
   });
 
   describe('app.api with GET /api/pitching_stats', function() {    
-    it('responses stats with 200', function(done) {
+    it('sends 200 with json', function(done) {
       var expectedStatus = 200;
+      var expectedType = 'application/json; charset=utf-8';
       var expectedContent = helper.viaJSON(mocks.pitchingStatsList);
 
       var res = httpMocks.createResponse();
@@ -196,6 +201,7 @@ describe('app.js', function() {
         .then(function() {
           var data = JSON.parse(res._getData());
           res.statusCode.should.equal(expectedStatus);
+          res.getHeader('content-type').should.equal(expectedType);
           data.should.eql(expectedContent);
           done();
         }).catch(done);
@@ -203,7 +209,7 @@ describe('app.js', function() {
   });
 
   describe('app.api with Unauthorized PUT', function() {
-    it('responses 401 when no authorization header', function(done) {
+    it('sends 401 when no authorization header', function(done) {
       var expected = 401;
 
       var res = httpMocks.createResponse();
@@ -217,7 +223,7 @@ describe('app.js', function() {
         done();
       }).catch(done);
     });
-    it('responses 401 when invalid auth header', function(done) {
+    it('sends 401 when invalid auth header', function(done) {
       var expected = 401;
 
       var res = httpMocks.createResponse();
@@ -232,7 +238,7 @@ describe('app.js', function() {
         done();
       }).catch(done);
     });
-    it('responses 401 when invalid token', function(done) {
+    it('sends 401 when invalid token', function(done) {
       var expected = 401;
 
       var res = httpMocks.createResponse();
@@ -250,7 +256,7 @@ describe('app.js', function() {
   });
 
   describe('app.api with Authorized PUT invalid url', function() {
-    it('responses 404', function(done) {
+    it('sends 404', function(done) {
       var expected = 404;
 
       AccessToken.issue().then(function(token) {
@@ -273,7 +279,7 @@ describe('app.js', function() {
   });
 
   describe('app.api with Authorized PUT /api/score', function() {
-    it('returns 400 if receives no data', function(done) {
+    it('sends 400 if receives no data', function(done) {
       var data = '';
       var expected = 400;
 
@@ -292,7 +298,7 @@ describe('app.js', function() {
         });
       }).catch(done);
     });
-    it('returns 400 if receives invalid data', function(done) {
+    it('sends 400 if receives invalid data', function(done) {
       var data = 'invalid';
       var expected = 400;
 
@@ -311,7 +317,7 @@ describe('app.js', function() {
         });
       }).catch(done);
     });
-    it('returns 201 and Location header', function(done) {
+    it('sends 201 and Location header', function(done) {
       var data = JSON.stringify(mocks.allData);
       var expectedStatus = 201;
       var expectedLocation = 'http://localhost/score/' +

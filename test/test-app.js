@@ -23,15 +23,20 @@ var config = require('../src/config');
 var myutil = require('../src/util');
 var AccessToken = require('../src/auth').AccessToken;
 
-  
+
 // ------------------------------------------------------------
-// Tests
+// Initialize
 // ------------------------------------------------------------
 
 var dbUri = 'mongodb://localhost/bbstats-testing';
 var dbModels = ['GameScore', 'BattingStats', 'PitchingStats',
                 'AccessToken'];
 init(dbUri, dbModels);
+
+  
+// ------------------------------------------------------------
+// Tests
+// ------------------------------------------------------------
 
 describe('app.js', function() {
   describe('app.api with GET invalid url', function() {
@@ -379,9 +384,3 @@ describe('app.js', function() {
   });
   
 });
-
-
-// -------------------------------------------------------------
-// mock data
-// -------------------------------------------------------------
-

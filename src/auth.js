@@ -4,9 +4,6 @@
 // Modules
 // ------------------------------------------------------------
 
-var crypto = require('crypto');
-var base64url = require('base64url');
-
 // polyfill
 var Promise = require('es6-promise').Promise;
 
@@ -60,7 +57,7 @@ function verifyAccessToken(token) {
 }
 
 function issueAccessToken() {
-  return randomString().pierce(saveAccessToken);
+  return myutil.randomString(32).pierce(saveAccessToken);
   // var saveTokenThru = myutil.createThruPromise(saveAccessToken);
   // return randomString().then(saveTokenThru);
 }
@@ -68,16 +65,6 @@ function issueAccessToken() {
 function saveAccessToken(token) {
   var dbToken = new AccessTokenModel({token: token});
   return myutil.promisize(dbToken.save, dbToken);
-}
-
-
-// ------------------------------------------------------------
-// Utils
-// ------------------------------------------------------------
-
-function randomString() {
-  var randoms = myutil.promisize(crypto.randomBytes.bind(crypto, 32));
-  return randoms.then(base64url);
 }
 
 

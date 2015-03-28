@@ -1,3 +1,8 @@
+'use strict';
+
+// ------------------------------------------------------------
+// Modules
+// ------------------------------------------------------------
 
 var Promise = require('es6-promise').Promise;
 var url = require('url');
@@ -6,13 +11,18 @@ var myutil = require('../src/util');
 var db = require('../src/db');
 var mocks = require('./mocks');
 
+
+// ------------------------------------------------------------
+// helper
+// ------------------------------------------------------------
+
 var helper = {};
 
 helper.toObjects = function(docs) {
   return docs.map(function(doc) {
     return doc.toObject();
   });
-}
+};
 
 helper.viaJSON = function(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -78,5 +88,10 @@ helper.saveStats = function(model, numberOfStats) {
 
   return Promise.all(promises);
 };
+
+
+// ------------------------------------------------------------
+// Export
+// ------------------------------------------------------------
 
 module.exports = helper;

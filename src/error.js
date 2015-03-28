@@ -11,14 +11,14 @@ var util = require('util');
 // Errors
 // ------------------------------------------------------------
 
-var NotFoundError = function NotFoundError(message) {
+function NotFoundError(message) {
   this.message = message || 'Not Found';
   this.name = this.constructor.name;
   this.statusCode = 404;
 };
 util.inherits(NotFoundError, Error);
 
-var AuthorizationError = function AuthorizationError(message) {
+function AuthorizationError(message) {
   this.message = message || 'Unauthorized';
   this.name = this.constructor.name;
   this.statusCode = 401;

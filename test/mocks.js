@@ -1,3 +1,9 @@
+'use strict';
+
+// ------------------------------------------------------------
+// mocks
+//------------------------------------------------------------
+
 var mocks = {};
 
 var scoreMock = {
@@ -88,6 +94,11 @@ mocks.allData = {
   score: mocks.gameScoreList[0],
   batting: mocks.battingStatsList,
   pitching: mocks.pitchingStatsList,
-}
+};
+
+
+// ------------------------------------------------------------
+// Export
+// ------------------------------------------------------------
 
 module.exports = mocks;

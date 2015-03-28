@@ -4,6 +4,10 @@
 // Modules
 // ------------------------------------------------------------
 
+var crypto = require('crypto');
+var base64url = require('base64url');
+
+// polyfills
 var Promise = require('es6-promise').Promise;
 
 
@@ -12,14 +16,14 @@ var Promise = require('es6-promise').Promise;
 // ------------------------------------------------------------
 
 /*
- > Promise.resolve(1.2).then(Math.ceil).then(console.log)
+ > Promise.resolve(1.2).then(Math.ceil).then(console.log);
  2
- > Promise.resolve(1.2).pierce(Math.ceil).then(console.log)
+ > Promise.resolve(1.2).pierce(Math.ceil).then(console.log);
  1.2
- > Promise.resolve('do it once').then(console.log).then(console.log)
+ > Promise.resolve('do it once').then(console.log).then(console.log);
  do it once
  undefined
- > Promise.resolve('do it twice').pierce(console.log).then(console.log)
+ > Promise.resolve('do it twice').pierce(console.log).then(console.log);
  do it twice
  do it twice
  */
@@ -32,9 +36,25 @@ Promise.prototype.pierce = function(func) {
   });
 };
 
+/*
+ > Promise.resolve(1.2).pass(3.4).then(console.log);
+ 3.4
+ > Promise.resolve('ignored').pass(console.log).then(console.log);
+ undefined
+ */
 Promise.prototype.pass = function(arg) {
   return this.then(function() {
     return arg;
+  });
+};
+
+/*
+ > Promise.resolve('ignored').pure(console.log);
+ undefined
+ */
+Promise.prototype.pure = function(func) {
+  return this.then(function() {
+    return func();
   });
 };
 
@@ -55,21 +75,9 @@ myutil.promisize = function(func, thisArg, opt_args) {
   });
 };
 
-/*
- receives function that returns promise object and returns new function. new 
- function calls received function with argument that received oneself then 
- passes argument to `then` method. ignores received function's return value.
-*/
-myutil.createThruPromise = function(func) {
-  return function(arg) {
-    return func(arg).then(function() { return arg; });
-  };
-};
-
-myutil.substitute = function(arg) {
-  return function() {
-    return arg;
-  };
+myutil.randomString = function(size) {
+  var randoms = myutil.promisize(crypto.randomBytes.bind(crypto, size));
+  return randoms.then(base64url);
 };
 
 

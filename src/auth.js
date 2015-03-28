@@ -58,8 +58,6 @@ function verifyAccessToken(token) {
 
 function issueAccessToken() {
   return myutil.randomString(32).pierce(saveAccessToken);
-  // var saveTokenThru = myutil.createThruPromise(saveAccessToken);
-  // return randomString().then(saveTokenThru);
 }
 
 function saveAccessToken(token) {

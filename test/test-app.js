@@ -56,7 +56,7 @@ describe('app.js', function() {
     });
   });
 
-  describe('app.api with GET /api/game_score', function() {
+  describe('app.api with GET /api/score', function() {
     it('sends 200 with json', function(done) {
       var expectedStatus = 200;
       var expectedType = 'application/json; charset=utf-8';
@@ -65,15 +65,15 @@ describe('app.js', function() {
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
         method: 'GET',
-        url: '/api/game_score',
+        url: '/api/score',
       });
 
       helper.saveScores(2).then(app.api.bind(null, req, res))
         .then(function() {
-          var data = JSON.parse(res._getData());
           res.statusCode.should.equal(expectedStatus);
           res.getHeader('content-type').should.equal(expectedType);
-          data.should.eql(expectedContent);
+          var actualContent = JSON.parse(res._getData());
+          actualContent.should.eql(expectedContent);
           done();
         })
         .catch(done);
@@ -85,13 +85,13 @@ describe('app.js', function() {
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
         method: 'GET',
-        url: helper.buildUrl('/api/game_score', {order: input}),
+        url: helper.buildUrl('/api/score', {order: input}),
       });
 
       helper.saveScores(4).then(app.api.bind(null, req, res))
         .then(function() {
-          var data = JSON.parse(res._getData());
-          data.should.eql(expected);
+          var actualContent = JSON.parse(res._getData());
+          actualContent.should.eql(expected);
           done();
         })
         .catch(done);
@@ -103,13 +103,13 @@ describe('app.js', function() {
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
         method: 'GET',
-        url: helper.buildUrl('/api/game_score', {date: input}),
+        url: helper.buildUrl('/api/score', {date: input}),
       });
 
       helper.saveScores(4).then(app.api.bind(null, req, res))
         .then(function() {
-          var data = JSON.parse(res._getData());
-          data.should.eql(expected);
+          var actualContent = JSON.parse(res._getData());
+          actualContent.should.eql(expected);
           done();
         })
         .catch(done);
@@ -121,13 +121,13 @@ describe('app.js', function() {
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
         method: 'GET',
-        url: helper.buildUrl('/api/game_score', {year: input}),
+        url: helper.buildUrl('/api/score', {year: input}),
       });
 
       helper.saveScores(4).then(app.api.bind(null, req, res))
         .then(function() {
-          var data = JSON.parse(res._getData());
-          data.should.eql(expected);
+          var actualContent = JSON.parse(res._getData());
+          actualContent.should.eql(expected);
           done();
         }).catch(done);
     });
@@ -138,19 +138,19 @@ describe('app.js', function() {
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
         method: 'GET',
-        url: helper.buildUrl('/api/game_score', {ground: input}),
+        url: helper.buildUrl('/api/score', {ground: input}),
       });
 
       helper.saveScores(4).then(app.api.bind(null, req, res))
         .then(function() {
-          var data = JSON.parse(res._getData());
-          data.should.eql(expected);
+          var actualContent = JSON.parse(res._getData());
+          actualContent.should.eql(expected);
           done();
         }).catch(done);
     });
   });
 
-  describe('app.api with GET /api/batting_stats', function() {    
+  describe('app.api with GET /api/batting', function() {    
     it('sends 200 with json', function(done) {
       var expectedStatus = 200;
       var expectedType = 'application/json; charset=utf-8';
@@ -159,15 +159,15 @@ describe('app.js', function() {
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
         method: 'GET',
-        url: '/api/batting_stats',
+        url: '/api/batting',
       });
 
       helper.saveStats('BattingStats', 2).then(app.api.bind(null, req, res))
         .then(function() {
-          var data = JSON.parse(res._getData());
           res.statusCode.should.equal(expectedStatus);
           res.getHeader('content-type').should.equal(expectedType);
-          data.should.eql(expectedContent);
+          var actualContent = JSON.parse(res._getData());
+          actualContent.should.eql(expectedContent);
           done();
         }).catch(done);
     });
@@ -178,19 +178,19 @@ describe('app.js', function() {
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
         method: 'GET',
-        url: helper.buildUrl('/api/batting_stats', {player: input}),
+        url: helper.buildUrl('/api/batting', {player: input}),
       });
 
       helper.saveStats('BattingStats', 2).then(app.api.bind(null, req, res))
         .then(function() {
-          var data = JSON.parse(res._getData());
-          data.should.eql(expected);
+          var actualContent = JSON.parse(res._getData());
+          actualContent.should.eql(expected);
           done();
         }).catch(done);
     });
   });
 
-  describe('app.api with GET /api/pitching_stats', function() {    
+  describe('app.api with GET /api/pitching', function() {    
     it('sends 200 with json', function(done) {
       var expectedStatus = 200;
       var expectedType = 'application/json; charset=utf-8';
@@ -199,15 +199,15 @@ describe('app.js', function() {
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
         method: 'GET',
-        url: '/api/pitching_stats',
+        url: '/api/pitching',
       });
 
       helper.saveStats('PitchingStats', 2).then(app.api.bind(null, req, res))
         .then(function() {
-          var data = JSON.parse(res._getData());
           res.statusCode.should.equal(expectedStatus);
           res.getHeader('content-type').should.equal(expectedType);
-          data.should.eql(expectedContent);
+          var actualContent = JSON.parse(res._getData());
+          actualContent.should.eql(expectedContent);
           done();
         }).catch(done);
     });

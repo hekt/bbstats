@@ -36,18 +36,15 @@ app.api = api;
 
 var apiActionSet = {
   GET: {
-    game_score: getGameScore,
-    batting_stats: getBattingStats,
-    pitching_stats: getPitchingStats,
-  },
-  POST: {
-    game_score: createGameScore,
-    batting_stats: createBattingStats,
-    pitching_stats: createPitchingStats,
+    score: getGameScore,
+    batting: getBattingStats,
+    pitching: getPitchingStats,
   },
   PUT: {
-    score: updateData,
+    score: saveScore,
   },
+  DELETE: {},
+  POST: {},
 };
 
 function api(req, res) {
@@ -72,8 +69,44 @@ function api(req, res) {
   };
 
   return authorize().then(action)
-    .then(writeResponse.bind(null, req, res))
+    .then(writeSuccessResponse.bind(null, req, res))
     .catch(writeErrorResponse.bind(null, req, res));
+}
+
+function writeSuccessResponse(req, res, result) {
+  var status, header, content;
+  var responseHasBody = req.method === 'GET';
+  var resourcesCreated = req.method === 'PUT';
+  if (responseHasBody) {
+    status = 200;
+    header = {'content-type': 'application/json; charset=utf-8'};
+    content = JSON.stringify(result) + '\n';
+  } else if (resourcesCreated) {
+    var u = url.parse(req.url);
+    var loc = 'http://' + u.host + '/score/' + strftime('%F', result);
+    status = 201;
+    header = {'Location': loc};
+  } else {
+    status = 204;
+  }
+
+  res.writeHead(status, header);
+  res.end(content);
+
+  return 'success';
+}
+
+function writeErrorResponse(req, res, err) {
+  var data = error.toHttpData(err);
+  var status = data.statusCode;
+  var header = {'content-type': 'text/plain; charset=utf-8'};
+  var content = data.message + '\n';
+
+  res.writeHead(status, header);
+  res.end(content);
+
+  if (data.statusCode === 500) console.error(err);
+  return err;
 }
 
 
@@ -109,7 +142,7 @@ function getPitchingStats(query) {
 // PUT
 // ------------------------------------------------------------
 
-function updateData(obj) {
+function saveScore(obj) {
   var dateStr = obj.score.date;
   var promises = [
     saveGameScore(obj.score),
@@ -148,40 +181,7 @@ function saveStats(modelName, objs) {
 
 
 // -------------------------------------------------------------
-// POST
-// -------------------------------------------------------------
-
-function createGameScore(obj) {
-  obj.date = new Date(obj.date);
-  var Model = db.model('GameScore');
-  var score = new Model(obj);
-
-  return myutil.promisize(score.save, score);
-}
-
-function createStats(modelName, objs) {
-  var Model = db.model(modelName);
-  var promises = objs.map(function(obj) {
-    obj.date = new Date(obj.date);
-    var stat = new Model(obj);
-    
-    return myutil.promisize(stat.save, stat);
-  });
-
-  return Promise.all(promises);
-}
-
-function createBattingStats(objs) {
-  return createStats('BattingStats', objs);
-}
-
-function createPitchingStats(objs) {
-  return createStats('PitchingStats', objs);
-}
-
-
-// -------------------------------------------------------------
-// Utils
+// authorization
 // -------------------------------------------------------------
 
 function authorization(authHeader) {
@@ -204,6 +204,11 @@ function parseAuthorizationHeader(header) {
   };
 }
 
+
+// ------------------------------------------------------------
+// Utils
+// ------------------------------------------------------------
+
 function setGeneralOptionsToDBQuery(dbq, q) {
   dbq = (q.order && q.order === 'asc') ?
     dbq.sort('date') : dbq.sort('-date');
@@ -225,58 +230,7 @@ function getRequestBodyAsync(req) {
   });
 }
 
-function errorCode(err) {
-  if (err.statusCode) return err.statusCode;
-  switch (err.name) {
-    case 'SyntaxError':
-      return 400;
-    case 'ValidationError':
-      return 400;
-    case 'MongoError':
-      if (err.code === 11000) return 409;
-    default:
-      return 500;
-  }
-}
 
-function writeResponse(req, res, result) {
-  var status, header, content;
-  var responseHasBody = req.method === 'GET';
-  var resourcesCreated = req.method === 'PUT';
-  if (responseHasBody) {
-    status = 200;
-    header = {'content-type': 'application/json; charset=utf-8'};
-    content = JSON.stringify(result) + '\n';
-  } else if (resourcesCreated) {
-    var u = url.parse(req.url, true);
-    var d = strftime('%F', result);
-    var loc = u.protocol + '//' + u.host + '/score/' + d;
-    status = 201;
-    header = {'Location': loc};
-  } else {
-    status = 204;
-  }
-
-  res.writeHead(status, header);
-  res.end(content);
-
-  return 'success';
-}
-
-function writeErrorResponse(req, res, err) {
-  var data = error.toHttpData(err);
-  var status = data.statusCode;
-  var header = {'content-type': 'text/plain; charset=utf-8'};
-  var content = data.message + '\n';
-
-  res.writeHead(status, header);
-  res.end(content);
-
-  if (data.statusCode === 500) console.error(err);
-  return err;
-}
-
-  
 //==============================================================
 // Export
 //==============================================================

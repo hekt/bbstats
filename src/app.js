@@ -36,9 +36,8 @@ app.api = api;
 
 var apiActionSet = {
   GET: {
-    score: getGameScore,
-    batting: getBattingStats,
-    pitching: getPitchingStats,
+    score: getGameScoresByYear,
+    stats: getStatsByDate,
   },
   PUT: {
     score: saveScore,
@@ -114,27 +113,44 @@ function writeErrorResponse(req, res, err) {
 // GET
 // -------------------------------------------------------------
 
-function getGameScore(query) {
+function getStatsByDate(query) {
+  var date = new Date(query.date);
+  if (!isValidDate(date))
+    return Promise.reject(new error.MissingParameterError());
+  return getPlayerNames().then(function(nameDic) {
+    var formatBatting = formatBattingStatsForResponse.bind(null, nameDic);
+    var formatPitching = formatPitchingStatsForResponse.bind(null, nameDic);
+    var stats = {};
+    var promises = [
+      getRawStatsByDate('BattingStats', date).then(formatBatting)
+        .then(function(stats) { stats.battingStats = stats; }),
+      getRawStatsByDate('PitchingStats', date).then(formatPitching)
+        .then(function(stats) { stats.pitchingStats = stats; }),
+    ];
+    return Promise.all(promises).then(function() {
+      return stats;
+    });
+  });
+}
+
+function getGameScoresByYear(query) {
+  var year = query.year;
+
+  if (year.match(/^20\d\d$/) === null)
+    return Promise.reject(new error.MissingParameterError());
+  
   var dbQuery = db.model('GameScore').find(null, '-_id -__v');
-  dbQuery = setGeneralOptionsToDBQuery(dbQuery, query);
+  dbQuery.sort('-date');
+  dbQuery.gte('date', new Date(year));
+  dbQuery.lte('date', new Date(year + '-12-31'));
   
-  return myutil.promisize(dbQuery.exec, dbQuery);
+  return promisize(dbQuery.exec, dbQuery);
 }
 
-function getBattingStats(query) {
-  var dbQuery = db.model('BattingStats').find(null, '-_id -__v');
-  dbQuery = setGeneralOptionsToDBQuery(dbQuery, query);
-  if (query.player) dbQuery = dbQuery.where('playerId', query.player);
-  
-  return myutil.promisize(dbQuery.exec, dbQuery);
-}
-
-function getPitchingStats(query) {
-  var dbQuery = db.model('PitchingStats').find(null, '-_id -__v');
-  dbQuery = setGeneralOptionsToDBQuery(dbQuery, query);
-  if (query.player) dbQuery = dbQuery.where('playerId', query.player);
-
-  return myutil.promisize(dbQuery.exec, dbQuery);
+function getRawStatsByDate(statsKind, date) {
+  var dbQuery = db.model(statsKind)
+        .find(null, '-_id -__v').where({date: date});
+  return promisize(dbQuery.exec, dbQuery);
 }
 
 
@@ -206,21 +222,63 @@ function parseAuthorizationHeader(header) {
 
 
 // ------------------------------------------------------------
-// Utils
+// Formatting
 // ------------------------------------------------------------
 
-function setGeneralOptionsToDBQuery(dbq, q) {
-  dbq = (q.order && q.order === 'asc') ?
-    dbq.sort('date') : dbq.sort('-date');
-  if (q.date) dbq = dbq.where('date', new Date(q.date));
-  if (q.year) {
-    dbq = dbq.gte('date', new Date(q.year));
-    dbq = dbq.lte('date', new Date(q.year + '-12-31'));
-  }
-  if (q.ground) dbq = dbq.where('ground', q.ground);
+function formatBattingStatsForResponse(nameDic, docs) {
+  var date;
+  var ground;
+  var players = [];
+  docs.forEach(function(doc) {
+    var player = doc.toObject();
 
-  return dbq;
+    date = date || player.date;
+    ground = ground || player.ground;
+
+    delete player.date;
+    delete player.ground;
+
+    player.name = nameDic[player.playerId];
+    
+    players.push(player);
+  });
+
+  return {
+    date: date,
+    ground: ground,
+    players: players,
+  };
 }
+
+function formatPitchingStatsForResponse(nameDic, docs) {
+  var date;
+  var ground;
+  var players = [];
+  docs.forEach(function(doc) {
+    var player = doc.toObject();
+
+    date = date || player.date;
+    ground = ground || player.ground;
+
+    delete player.date;
+    delete player.ground;
+
+    player.name = nameDic[player.playerId];
+
+    players.push(player);
+  });
+
+  return {
+    date: date,
+    ground: ground,
+    players: players,
+  };
+}
+
+
+// ------------------------------------------------------------
+// Utils
+// ------------------------------------------------------------
 
 function getRequestBodyAsync(req) {
   return new Promise(function(resolve, reject) {
@@ -228,6 +286,21 @@ function getRequestBodyAsync(req) {
       err ? reject(err) : resolve(data.toString());
     }));
   });
+}
+
+function getPlayerNames() {
+  var dbQuery = db.model('Member').find(null, '-_id -__v');
+  return promisize(dbQuery.exec, dbQuery).then(function(docs) {
+    var obj = {};
+    docs.forEach(function(doc) {
+      obj[doc.playerId] = doc.playerName;
+    });
+    return obj;
+  });
+}
+
+function isValidDate(date) {
+  return date.toString() !== 'Invalid Date';
 }
 
 

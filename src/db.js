@@ -62,6 +62,7 @@ var atbatSchema = new Schema({
 }, {_id: false});
 var battingStatSchema = new Schema({
   playerId: {type: Number, require: true},
+  positions: [{type: String}],
   date: {type: Date, require: true},
   ground: {type: String, require: true},
   rbi: {type: Number, require: true},
@@ -85,6 +86,12 @@ var pitchingStatSchema = new Schema({
   error: {type: Number, require: true}
 });
 var PitchingStat = db.model("PitchingStats", pitchingStatSchema);
+
+var memberSchema = new Schema({
+  playerId: {type: Number, require: true, unique: true},
+  playerName: {type: String, require: true},
+});
+var Member = db.model('Member', memberSchema);
 
 
 // ------------------------------------------------------------

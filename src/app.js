@@ -115,17 +115,19 @@ function writeErrorResponse(req, res, err) {
 
 function getStatsByDate(query) {
   var date = new Date(query.date);
+  
   if (!isValidDate(date))
     return Promise.reject(new error.MissingParameterError());
+  
   return getPlayerNames().then(function(nameDic) {
     var formatBatting = formatBattingStatsForResponse.bind(null, nameDic);
     var formatPitching = formatPitchingStatsForResponse.bind(null, nameDic);
     var stats = {};
     var promises = [
       getRawStatsByDate('BattingStats', date).then(formatBatting)
-        .then(function(stats) { stats.battingStats = stats; }),
+        .then(function(result) { stats.battingStats = result; }),
       getRawStatsByDate('PitchingStats', date).then(formatPitching)
-        .then(function(stats) { stats.pitchingStats = stats; }),
+        .then(function(result) { stats.pitchingStats = result; }),
     ];
     return Promise.all(promises).then(function() {
       return stats;
@@ -134,7 +136,7 @@ function getStatsByDate(query) {
 }
 
 function getGameScoresByYear(query) {
-  var year = query.year;
+  var year = query.year || (new Date()).getFullYear().toString();
 
   if (year.match(/^20\d\d$/) === null)
     return Promise.reject(new error.MissingParameterError());
@@ -238,7 +240,7 @@ function formatBattingStatsForResponse(nameDic, docs) {
     delete player.date;
     delete player.ground;
 
-    player.name = nameDic[player.playerId];
+    player.name = nameDic[player.playerId] || 'anonymous';
     
     players.push(player);
   });
@@ -263,7 +265,7 @@ function formatPitchingStatsForResponse(nameDic, docs) {
     delete player.date;
     delete player.ground;
 
-    player.name = nameDic[player.playerId];
+    player.name = nameDic[player.playerId] || 'anonymous';
 
     players.push(player);
   });

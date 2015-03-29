@@ -58,65 +58,10 @@ describe('app.js', function() {
 
   describe('app.api with GET /api/score', function() {
     it('sends 200 with json', function(done) {
+      var input = 2012;
       var expectedStatus = 200;
       var expectedType = 'application/json; charset=utf-8';
-      var expectedContent = helper.viaJSON(mocks.gameScoreList.slice(0, 2));
-
-      var res = httpMocks.createResponse();
-      var req = httpMocks.createRequest({
-        method: 'GET',
-        url: '/api/score',
-      });
-
-      helper.saveScores(2).then(app.api.bind(null, req, res))
-        .then(function() {
-          res.statusCode.should.equal(expectedStatus);
-          res.getHeader('content-type').should.equal(expectedType);
-          var actualContent = JSON.parse(res._getData());
-          actualContent.should.eql(expectedContent);
-          done();
-        })
-        .catch(done);
-    });
-    it('conforms order option', function(done) {
-      var input = 'asc';
-      var expected = helper.viaJSON(mocks.gameScoreList.slice(0).reverse());
-
-      var res = httpMocks.createResponse();
-      var req = httpMocks.createRequest({
-        method: 'GET',
-        url: helper.buildUrl('/api/score', {order: input}),
-      });
-
-      helper.saveScores(4).then(app.api.bind(null, req, res))
-        .then(function() {
-          var actualContent = JSON.parse(res._getData());
-          actualContent.should.eql(expected);
-          done();
-        })
-        .catch(done);
-    });
-    it('conforms date option', function(done) {
-      var input = '2012-05-20';
-      var expected = helper.viaJSON(mocks.gameScoreList.slice(0, 1));
-
-      var res = httpMocks.createResponse();
-      var req = httpMocks.createRequest({
-        method: 'GET',
-        url: helper.buildUrl('/api/score', {date: input}),
-      });
-
-      helper.saveScores(4).then(app.api.bind(null, req, res))
-        .then(function() {
-          var actualContent = JSON.parse(res._getData());
-          actualContent.should.eql(expected);
-          done();
-        })
-        .catch(done);
-    });
-    it('conforms year option', function(done) {
-      var input = '2012';
-      var expected = helper.viaJSON(mocks.gameScoreList.slice(0,3));
+      var expectedContent = helper.viaJSON(mocks.gameScoreList.slice(0, 3));
 
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
@@ -124,90 +69,54 @@ describe('app.js', function() {
         url: helper.buildUrl('/api/score', {year: input}),
       });
 
-      helper.saveScores(4).then(app.api.bind(null, req, res))
-        .then(function() {
-          var actualContent = JSON.parse(res._getData());
-          actualContent.should.eql(expected);
-          done();
-        }).catch(done);
-    });
-    it('conforms ground option', function(done) {
-      var input = 'マツダスタジアム';
-      var expected = helper.viaJSON(mocks.gameScoreList.slice(0,2));
-
-      var res = httpMocks.createResponse();
-      var req = httpMocks.createRequest({
-        method: 'GET',
-        url: helper.buildUrl('/api/score', {ground: input}),
-      });
-
-      helper.saveScores(4).then(app.api.bind(null, req, res))
-        .then(function() {
-          var actualContent = JSON.parse(res._getData());
-          actualContent.should.eql(expected);
-          done();
-        }).catch(done);
-    });
-  });
-
-  describe('app.api with GET /api/batting', function() {    
-    it('sends 200 with json', function(done) {
-      var expectedStatus = 200;
-      var expectedType = 'application/json; charset=utf-8';
-      var expectedContent = helper.viaJSON(mocks.battingStatsList);
-
-      var res = httpMocks.createResponse();
-      var req = httpMocks.createRequest({
-        method: 'GET',
-        url: '/api/batting',
-      });
-
-      helper.saveStats('BattingStats', 2).then(app.api.bind(null, req, res))
+      helper.saveScores(3).then(app.api.bind(null, req, res))
         .then(function() {
           res.statusCode.should.equal(expectedStatus);
           res.getHeader('content-type').should.equal(expectedType);
           var actualContent = JSON.parse(res._getData());
           actualContent.should.eql(expectedContent);
           done();
-        }).catch(done);
-    });
-    it('confirms player option', function(done) {
-      var input = 1;
-      var expected = helper.viaJSON(mocks.battingStatsList.slice(0, 1));
-
-      var res = httpMocks.createResponse();
-      var req = httpMocks.createRequest({
-        method: 'GET',
-        url: helper.buildUrl('/api/batting', {player: input}),
-      });
-
-      helper.saveStats('BattingStats', 2).then(app.api.bind(null, req, res))
-        .then(function() {
-          var actualContent = JSON.parse(res._getData());
-          actualContent.should.eql(expected);
-          done();
-        }).catch(done);
+        })
+        .catch(done);
     });
   });
 
-  describe('app.api with GET /api/pitching', function() {    
+  describe('app.api with GET /api/stats', function() {
     it('sends 200 with json', function(done) {
-      var expectedStatus = 200;
-      var expectedType = 'application/json; charset=utf-8';
-      var expectedContent = helper.viaJSON(mocks.pitchingStatsList);
+      var input = '2012-05-20';
 
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
         method: 'GET',
-        url: '/api/pitching',
+        url: helper.buildUrl('/api/stats', {date: input}),
       });
 
-      helper.saveStats('PitchingStats', 2).then(app.api.bind(null, req, res))
+      var promises = [
+        helper.saveStats('BattingStats', 2),
+        helper.saveStats('PitchingStats', 2),
+      ];
+
+      Promise.all(promises).then(app.api.bind(null, req, res))
         .then(function() {
-          res.statusCode.should.equal(expectedStatus);
-          res.getHeader('content-type').should.equal(expectedType);
+          res.statusCode.should.equal(200);
+          res.getHeader('content-type').should
+            .equal('application/json; charset=utf-8');
+          
           var actualContent = JSON.parse(res._getData());
-          actualContent.should.eql(expectedContent);
+          actualContent.should.have.keys(['battingStats', 'pitchingStats']);
+
+          var statKeys = ['date', 'ground', 'players'];
+          
+          var actualBatting = actualContent.battingStats;
+          actualBatting.should.have.keys(statKeys);
+          var actualBatKeys = Object.keys(actualBatting.players[0]);
+          actualBatKeys.should.have.length(8);
+
+          var actualPitching = actualContent.pitchingStats;
+          actualPitching.should.have.keys(statKeys);
+          var actualPitKeys = Object.keys(actualPitching.players[0]);
+          actualPitKeys.should.have.length(9);
+
           done();
         }).catch(done);
     });

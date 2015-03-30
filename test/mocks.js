@@ -26,19 +26,75 @@ mocks.gameScoreList = [
   { date: new Date('2012-05-20T00:00:00.000Z'),
     ground: 'マツダスタジアム',
     result: 'win',
-    score: scoreMock, },
+  awayTeam: {
+    teamName: '日本ハム',
+    totalRuns: 5,
+    totalErrors: 0,
+    totalHits: 9,
+    runs: [0, 0, 0, 0, 0, 0, 0, 0, 5]
+  },
+  homeTeam: {
+    teamName: '広島',
+    totalRuns: 4,
+    totalErrors: 4,
+    totalHits: 8,
+    runs: [0, 0, 1, 0, 0, 0, 0, 3, 0]
+  }
+  },
   { date: new Date('2012-05-19T00:00:00.000Z'),
     ground: 'マツダスタジアム',
     result: 'lose',
-    score: scoreMock },
+  awayTeam: {
+    teamName: '日本ハム',
+    totalRuns: 5,
+    totalErrors: 0,
+    totalHits: 9,
+    runs: [0, 0, 0, 0, 0, 0, 0, 0, 5]
+  },
+  homeTeam: {
+    teamName: '広島',
+    totalRuns: 4,
+    totalErrors: 4,
+    totalHits: 8,
+    runs: [0, 0, 1, 0, 0, 0, 0, 3, 0]
+  }
+  },
   { date: new Date('2012-05-17T00:00:00.000Z'),
     ground: '甲子園',
     result: 'win',
-    score: scoreMock },
+  awayTeam: {
+    teamName: '日本ハム',
+    totalRuns: 5,
+    totalErrors: 0,
+    totalHits: 9,
+    runs: [0, 0, 0, 0, 0, 0, 0, 0, 5]
+  },
+  homeTeam: {
+    teamName: '広島',
+    totalRuns: 4,
+    totalErrors: 4,
+    totalHits: 8,
+    runs: [0, 0, 1, 0, 0, 0, 0, 3, 0]
+  }
+  },
   { date: new Date('2011-05-16T00:00:00.000Z'),
     ground: '甲子園',
     result: 'win',
-    score: scoreMock },
+  awayTeam: {
+    teamName: '日本ハム',
+    totalRuns: 5,
+    totalErrors: 0,
+    totalHits: 9,
+    runs: [0, 0, 0, 0, 0, 0, 0, 0, 5]
+  },
+  homeTeam: {
+    teamName: '広島',
+    totalRuns: 4,
+    totalErrors: 4,
+    totalHits: 8,
+    runs: [0, 0, 1, 0, 0, 0, 0, 3, 0]
+  }
+  },
 ];
 
 var atbatsMock = [{

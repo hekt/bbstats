@@ -26,21 +26,25 @@ var gameScoreSchema = new Schema({
   date: {type: Date, required: true, unique: true},
   ground: {type: String, required: true},
   result: {type: String, required: true},
-  score: {
-    awayTeam: {
+  awayTeam: {
+    type: {
       teamName: {type: String, required: true},
       totalRuns: {type: Number, required: true},
       totalErrors: {type: Number, required: true},
       totalHits: {type: Number, required: true},
       runs: {type: [Number], required: true},
     },
-    homeTeam: {
+    required: true,
+  },
+  homeTeam: {
+    type: {
       teamName: {type: String, required: true},
       totalRuns: {type: Number, required: true},
       totalErrors: {type: Number, required: true},
       totalHits: {type: Number, required: true},
       runs: {type: [Number], required: true},
     },
+    required: true,
   },
 });
 var GameScore = db.model('GameScore', gameScoreSchema);

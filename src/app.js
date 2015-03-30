@@ -104,7 +104,7 @@ function writeErrorResponse(req, res, err) {
   res.writeHead(status, header);
   res.end(content);
 
-  if (data.statusCode === 500)
+  // if (data.statusCode === 500)
     console.error(err, err.stack);
   return err;
 }
@@ -176,7 +176,8 @@ function saveScore(data) {
 function saveGameScore(obj) {
   var Model = db.model('GameScore');
   var conds = {'date': obj.date};
-  var opts = {'upsert': true};
+  var opts = {upsert: true,
+              runValidators: true};
   var query = Model.findOneAndUpdate.bind(Model, conds, obj, opts);
 
   return promisize(query);
@@ -363,6 +364,7 @@ function isValidDate(date) {
 
 var playerDic = (function() {
   var _dic = {};
+  var _dicLoaded;
 
   return {
     getNameAsync: getName,
@@ -370,8 +372,9 @@ var playerDic = (function() {
   };
 
   function getDic() {
-    return _dic ? Promise.resolve(_dic) :
+    return _dicLoaded ? Promise.resolve(_dic) :
       getPlayerNames().then(function(dic) {
+        _dicLoaded = true;
         _dic = dic;
         return dic;
       });
@@ -385,7 +388,9 @@ var playerDic = (function() {
 
   function getId(playerName) {
     return getDic().then(function(dic) {
+      console.log(dic);
       for (var k in dic) {
+        console.log(dic[k], playerName);
         if (dic[k] === playerName) return k;
       }
       return createNewId(playerName);

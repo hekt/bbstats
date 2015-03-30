@@ -17,10 +17,6 @@ var config = require('./config');
 
 var db = mongoose;
 
-if (db.connection.readyState === 0) {
-  db.connect(config.dbUri);
-}
-
 
 // ------------------------------------------------------------
 // Models
@@ -31,15 +27,15 @@ var gameScoreSchema = new Schema({
   ground: {type: String, required: true},
   result: {type: String, required: true},
   score: {
-    firstTeam: {
-      name: {type: String, required: true},
+    awayTeam: {
+      teamName: {type: String, required: true},
       totalRuns: {type: Number, required: true},
       totalErrors: {type: Number, required: true},
       totalHits: {type: Number, required: true},
       runs: {type: [Number], required: true},
     },
-    secondTeam: {
-      name: {type: String, required: true},
+    homeTeam: {
+      teamName: {type: String, required: true},
       totalRuns: {type: Number, required: true},
       totalErrors: {type: Number, required: true},
       totalHits: {type: Number, required: true},
@@ -62,6 +58,8 @@ var atbatSchema = new Schema({
 }, {_id: false});
 var battingStatSchema = new Schema({
   playerId: {type: Number, require: true},
+  order: {type: Number, require: true},
+  appearanceOrder: {type: Number, require: true},
   positions: [{type: String}],
   date: {type: Date, require: true},
   ground: {type: String, require: true},
@@ -87,11 +85,11 @@ var pitchingStatSchema = new Schema({
 });
 var PitchingStat = db.model("PitchingStats", pitchingStatSchema);
 
-var memberSchema = new Schema({
+var teamMemberSchema = new Schema({
   playerId: {type: Number, require: true, unique: true},
   playerName: {type: String, require: true},
 });
-var Member = db.model('Member', memberSchema);
+var TeamMember = db.model('TeamMember', teamMemberSchema);
 
 
 // ------------------------------------------------------------

@@ -17,7 +17,8 @@ var db = require('../src/db');
 
 function init(uri, models) {
   before(function(done) {
-    db.connect(uri, function() {
+    db.connect(uri, function(err) {
+      if (err) throw err;
       removeAll(models).pure(done);
     });
   });

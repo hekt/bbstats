@@ -104,7 +104,8 @@ function writeErrorResponse(req, res, err) {
   res.writeHead(status, header);
   res.end(content);
 
-  if (data.statusCode === 500) console.error(err);
+  if (data.statusCode === 500)
+    console.error(err, err.stack);
   return err;
 }
 
@@ -160,21 +161,19 @@ function getRawStatsByDate(statsKind, date) {
 // PUT
 // ------------------------------------------------------------
 
-function saveScore(obj) {
-  var dateStr = obj.score.date;
-  var promises = [
-    saveGameScore(obj.score),
-    saveStats('BattingStats', obj.batting),
-    saveStats('PitchingStats', obj.pitching),
-  ];
+function saveScore(data) {
+  return formatDataFromRequest(data).then(function() {
+    var promises = [
+      saveGameScore(data.gameScore),
+      saveStats('BattingStats', data.battingStats),
+      saveStats('PitchingStats', data.pitchingStats),
+    ];
 
-  return Promise.all(promises).then(function() {
-    return new Date(dateStr);
+    return Promise.all(promises).pass(data.date);
   });
 }
 
 function saveGameScore(obj) {
-  obj.date = new Date(obj.date);
   var Model = db.model('GameScore');
   var conds = {'date': obj.date};
   var opts = {'upsert': true};
@@ -186,7 +185,6 @@ function saveGameScore(obj) {
 function saveStats(modelName, objs) {
   var Model = db.model(modelName);
   var promises = objs.map(function(obj) {
-    obj.date = new Date(obj.date);
     var conds = {'date': obj.date, 'playerId': obj.playerId};
     var opts = {'upsert': true};
     var query = Model.findOneAndUpdate.bind(Model, conds, obj, opts);
@@ -226,6 +224,55 @@ function parseAuthorizationHeader(header) {
 // ------------------------------------------------------------
 // Formatting
 // ------------------------------------------------------------
+
+function formatDataFromRequest(data) {
+  data.date = new Date(data.date);
+  var promises = [
+    formatGameScoreFromRequest(data),
+    formatBattingStatsFromRequest(data),
+    formatPitchingStatsFromRequest(data),
+  ];
+  return Promise.all(promises);
+}
+
+function formatGameScoreFromRequest(data) {
+  var score = data.gameScore;
+  score.date = new Date(data.date);
+  score.ground = data.ground;
+
+  return Promise.resolve();
+}
+
+function formatBattingStatsFromRequest(data) {
+  var batters = data.battingStats;
+  addDateAndGroundToPlayers(data, batters);
+
+  var promises = batters.map(addIdToPlayerAsync);
+  return Promise.all(promises);
+}
+
+function formatPitchingStatsFromRequest(data) {
+  var pitchers = data.pitchingStats;
+  addDateAndGroundToPlayers(data, pitchers);
+
+  var promises = pitchers.map(addIdToPlayerAsync);
+  return Promise.all(promises);
+}
+
+function addIdToPlayerAsync(player) {
+  return playerDic.getIdAsync(player.name).then(function(pid) {
+    player.playerId = pid;
+  });
+}
+
+function addDateAndGroundToPlayers(obj, players) {
+  var date = obj.date;
+  var ground = obj.ground;
+  players.forEach(function(player) {
+    player.date = date;
+    player.ground = ground;
+  });
+}
 
 function formatBattingStatsForResponse(nameDic, docs) {
   var date;
@@ -291,7 +338,7 @@ function getRequestBodyAsync(req) {
 }
 
 function getPlayerNames() {
-  var dbQuery = db.model('Member').find(null, '-_id -__v');
+  var dbQuery = db.model('TeamMember').find(null, '-_id -__v');
   return promisize(dbQuery.exec, dbQuery).then(function(docs) {
     var obj = {};
     docs.forEach(function(doc) {
@@ -300,10 +347,67 @@ function getPlayerNames() {
     return obj;
   });
 }
+function getPlayerIdFromNameDic(nameDic, name) {
+  for (var k in nameDic) {
+    if (nameDic[k] === name) return k;
+  }
+  var ids = Object.keys(nameDic);
+  var newId = Math.max.apply(null, ids.push(1000)) + 1;
+  
+  return newId;
+}
 
 function isValidDate(date) {
   return date.toString() !== 'Invalid Date';
 }
+
+var playerDic = (function() {
+  var _dic = {};
+
+  return {
+    getNameAsync: getName,
+    getIdAsync: getId,
+  };
+
+  function getDic() {
+    return _dic ? Promise.resolve(_dic) :
+      getPlayerNames().then(function(dic) {
+        _dic = dic;
+        return dic;
+      });
+  }
+
+  function getName(playerId) {
+    return getDic().then(function(dic) {
+      return dic[playerId];
+    });
+  }
+
+  function getId(playerName) {
+    return getDic().then(function(dic) {
+      for (var k in dic) {
+        if (dic[k] === playerName) return k;
+      }
+      return createNewId(playerName);
+    });
+  }
+
+  function createNewId(playerName) {
+    var ids = Object.keys(_dic);
+    ids.push(999);
+    var newId = Math.max.apply(null, ids) + 1;
+
+    _dic[newId] = playerName;
+
+    var Model = db.model('TeamMember');
+    var player = new Model({
+      playerName: playerName,
+      playerId: newId,
+    });
+    
+    return promisize(player.save, player).pass(newId);
+  }
+}());
 
 
 //==============================================================

@@ -191,7 +191,8 @@ function saveStats(modelName, objs) {
   var Model = db.model(modelName);
   var promises = objs.map(function(obj) {
     var conds = {'date': obj.date, 'playerId': obj.playerId};
-    var opts = {'upsert': true};
+    var opts = {upsert: true,
+                runValidators: true};
     var query = Model.findOneAndUpdate.bind(Model, conds, obj, opts);
 
     return promisize(query);

@@ -397,7 +397,7 @@ function getPlayerIdFromNameDic(nameDic, name) {
 }
 
 function isValidDate(date) {
-  return date.toString() !== 'Invalid Date';
+  return date instanceof Date && date.toString() !== 'Invalid Date';
 }
 
 var playerDic = (function() {

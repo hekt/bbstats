@@ -162,11 +162,15 @@ function getRawStatsByDate(statsKind, date) {
 // ------------------------------------------------------------
 
 function saveScore(data) {
-  return formatDataFromRequest(data).then(function() {
+  return formatDataFromRequest(data).then(function(results) {
+    var score = results[0];
+    var batting = results[1];
+    var pitching = results[2];
+
     var promises = [
-      saveGameScore(data.gameScore),
-      saveStats('BattingStats', data.battingStats),
-      saveStats('PitchingStats', data.pitchingStats),
+      saveGameScore(score),
+      saveStats('BattingStats', batting),
+      saveStats('PitchingStats', pitching),
     ];
 
     return Promise.all(promises).pass(data.date);
@@ -241,11 +245,14 @@ function formatGameScoreFromRequest(data) {
   score.date = new Date(data.date);
   score.ground = data.ground;
 
-  return Promise.resolve();
+  return Promise.resolve(score);
 }
 
 function formatBattingStatsFromRequest(data) {
-  var batters = data.battingStats;
+  var batters = filterEmptyPlayer(data.battingStats);
+  batters.forEach(function(batter) {
+    batter.atbats = filterEmptyAtbat(batter.atbats);
+  });
   addDateAndGroundToPlayers(data, batters);
 
   var promises = batters.map(addIdToPlayerAsync);
@@ -253,16 +260,29 @@ function formatBattingStatsFromRequest(data) {
 }
 
 function formatPitchingStatsFromRequest(data) {
-  var pitchers = data.pitchingStats;
+  var pitchers = filterEmptyPlayer(data.pitchingStats);
   addDateAndGroundToPlayers(data, pitchers);
 
   var promises = pitchers.map(addIdToPlayerAsync);
   return Promise.all(promises);
 }
 
+function filterEmptyPlayer(players) {
+  return players.filter(function(player) {
+    return !!player.name;
+  });
+}
+
+function filterEmptyAtbat(atbats) {
+  return atbats.filter(function(atbat) {
+    return !!atbat.result;
+  });
+}
+
 function addIdToPlayerAsync(player) {
   return playerDic.getIdAsync(player.name).then(function(pid) {
     player.playerId = pid;
+    return player;
   });
 }
 
@@ -288,7 +308,10 @@ function formatBattingStatsForResponse(nameDic, docs) {
     delete player.date;
     delete player.ground;
 
-    player.name = nameDic[player.playerId] || 'anonymous';
+    player.name = nameDic[player.playerId] || player.playerId;
+    player.atbats = player.atbats.filter(function(atbat) {
+      return !!atbat.result;
+    });
     
     players.push(player);
   });
@@ -388,9 +411,7 @@ var playerDic = (function() {
 
   function getId(playerName) {
     return getDic().then(function(dic) {
-      console.log(dic);
       for (var k in dic) {
-        console.log(dic[k], playerName);
         if (dic[k] === playerName) return k;
       }
       return createNewId(playerName);

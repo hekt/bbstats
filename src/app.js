@@ -250,7 +250,17 @@ function formatGameScoreFromRequest(data) {
 
 function formatBattingStatsFromRequest(data) {
   var batters = filterEmptyPlayer(data.battingStats);
+
+  var tempOrder = 0;
+  var tempAppear = 0;
   batters.forEach(function(batter) {
+    if (batter.order === tempOrder) {
+      batter.appearanceOrder = ++tempAppear;
+    } else {
+      batter.appearanceOrder = 0;
+      tempOrder = batter.order;
+      tempAppear = 0;
+    }
     batter.atbats = filterEmptyAtbat(batter.atbats);
   });
   addDateAndGroundToPlayers(data, batters);

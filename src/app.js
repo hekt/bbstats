@@ -104,7 +104,7 @@ function writeErrorResponse(req, res, err) {
   res.writeHead(status, header);
   res.end(content);
 
-  if (data.statusCode === 500)
+  // if (data.statusCode === 500)
     console.error(err, err.stack);
   return err;
 }
@@ -152,7 +152,7 @@ function getGameScoresByYear(query) {
 
 function getRawStatsByDate(statsKind, date) {
   var dbQuery = db.model(statsKind)
-        .find(null, '-_id -__v').where({date: date});
+        .find(null, '-_id -__v').where({date: date}).sort('order appearanceOrder');
   return promisize(dbQuery.exec, dbQuery);
 }
 
@@ -311,14 +311,9 @@ function addDateAndGroundToPlayers(obj, players) {
 }
 
 function formatBattingStatsForResponse(nameDic, docs) {
-  var date;
-  var ground;
   var players = [];
   docs.forEach(function(doc) {
     var player = doc.toObject();
-
-    date = date || player.date;
-    ground = ground || player.ground;
 
     delete player.date;
     delete player.ground;
@@ -331,22 +326,13 @@ function formatBattingStatsForResponse(nameDic, docs) {
     players.push(player);
   });
 
-  return {
-    date: date,
-    ground: ground,
-    players: players,
-  };
+  return players;
 }
 
 function formatPitchingStatsForResponse(nameDic, docs) {
-  var date;
-  var ground;
   var players = [];
   docs.forEach(function(doc) {
     var player = doc.toObject();
-
-    date = date || player.date;
-    ground = ground || player.ground;
 
     delete player.date;
     delete player.ground;
@@ -356,11 +342,7 @@ function formatPitchingStatsForResponse(nameDic, docs) {
     players.push(player);
   });
 
-  return {
-    date: date,
-    ground: ground,
-    players: players,
-  };
+  return players;
 }
 
 

@@ -104,7 +104,7 @@ function writeErrorResponse(req, res, err) {
   res.writeHead(status, header);
   res.end(content);
 
-  // if (data.statusCode === 500)
+  if (data.statusCode === 500)
     console.error(err, err.stack);
   return err;
 }
@@ -180,8 +180,7 @@ function saveScore(data) {
 function saveGameScore(obj) {
   var Model = db.model('GameScore');
   var conds = {'date': obj.date};
-  var opts = {upsert: true,
-              runValidators: true};
+  var opts = {upsert: true, runValidators: true};
   var query = Model.findOneAndUpdate.bind(Model, conds, obj, opts);
 
   return promisize(query);
@@ -191,8 +190,7 @@ function saveStats(modelName, objs) {
   var Model = db.model(modelName);
   var promises = objs.map(function(obj) {
     var conds = {'date': obj.date, 'playerId': obj.playerId};
-    var opts = {upsert: true,
-                runValidators: true};
+    var opts = {upsert: true, runValidators: true};
     var query = Model.findOneAndUpdate.bind(Model, conds, obj, opts);
 
     return promisize(query);
@@ -233,12 +231,15 @@ function parseAuthorizationHeader(header) {
 
 function formatDataFromRequest(data) {
   data.date = new Date(data.date);
-  var promises = [
-    formatGameScoreFromRequest(data),
-    formatBattingStatsFromRequest(data),
-    formatPitchingStatsFromRequest(data),
-  ];
-  return Promise.all(promises);
+
+  return playerDic.initAsync().then(function() {
+    var promises = [
+      formatGameScoreFromRequest(data),
+      formatBattingStatsFromRequest(data),
+      formatPitchingStatsFromRequest(data),
+    ];
+    return Promise.all(promises);
+  });
 }
 
 function formatGameScoreFromRequest(data) {
@@ -252,30 +253,20 @@ function formatGameScoreFromRequest(data) {
 function formatBattingStatsFromRequest(data) {
   var batters = filterEmptyPlayer(data.battingStats);
 
-  var tempOrder = 0;
-  var tempAppear = 0;
   batters.forEach(function(batter) {
-    if (batter.order === tempOrder) {
-      batter.appearanceOrder = ++tempAppear;
-    } else {
-      batter.appearanceOrder = 0;
-      tempOrder = batter.order;
-      tempAppear = 0;
-    }
     batter.atbats = filterEmptyAtbat(batter.atbats);
   });
+  addAppearanceOrderToBatters(batters);
   addDateAndGroundToPlayers(data, batters);
 
-  var promises = batters.map(addIdToPlayerAsync);
-  return Promise.all(promises);
+  return batters.map(addIdToPlayer);
 }
 
 function formatPitchingStatsFromRequest(data) {
   var pitchers = filterEmptyPlayer(data.pitchingStats);
   addDateAndGroundToPlayers(data, pitchers);
 
-  var promises = pitchers.map(addIdToPlayerAsync);
-  return Promise.all(promises);
+  return pitchers.map(addIdToPlayer);
 }
 
 function filterEmptyPlayer(players) {
@@ -290,11 +281,24 @@ function filterEmptyAtbat(atbats) {
   });
 }
 
-function addIdToPlayerAsync(player) {
-  return playerDic.getIdAsync(player.name).then(function(pid) {
-    player.playerId = pid;
-    return player;
+function addAppearanceOrderToBatters(batters) {
+  var tempOrder = 0;
+  var tempAppear = 0;
+  batters.forEach(function(batter) {
+    if (batter.order === tempOrder) {
+      batter.appearanceOrder = ++tempAppear;
+    } else {
+      batter.appearanceOrder = 0;
+      tempOrder = batter.order;
+      tempAppear = 0;
+    }
   });
+  return batters;
+}
+
+function addIdToPlayer(player) {
+  player.playerId = playerDic.getId(player.name);
+  return player;
 }
 
 function addDateAndGroundToPlayers(obj, players) {
@@ -398,42 +402,38 @@ function isValidDate(date) {
 
 var playerDic = (function() {
   var _dic = {};
-  var _dicLoaded;
+  var status = 0;
 
   return {
-    getNameAsync: getName,
-    getIdAsync: getId,
+    status: status,
+    initAsync: init,
+    getName: getName,
+    getId: getId,
   };
 
-  function getDic() {
-    return _dicLoaded ? Promise.resolve(_dic) :
+  function init() {
+    return status === 1 ? Promise.resolve() :
       getPlayerNames().then(function(dic) {
-        _dicLoaded = true;
         _dic = dic;
-        return dic;
+        status = 1;
       });
   }
 
   function getName(playerId) {
-    return getDic().then(function(dic) {
-      return dic[playerId];
-    });
+    if (status !== 1) console.warn('playerDic: not initialized');
+    return _dic[playerId];
   }
 
   function getId(playerName) {
-    return getDic().then(function(dic) {
-      for (var k in dic) {
-        if (dic[k] === playerName) return k;
-      }
-      return createNewId(playerName);
-    });
+    if (status !== 1) console.warn('playerDic: not initialized');
+    for (var k in _dic) {
+      if (_dic[k] === playerName) return k;
+    }
+    return createNewId(playerName);
   }
 
   function createNewId(playerName) {
-    var ids = Object.keys(_dic);
-    ids.push(999);
-    var newId = Math.max.apply(null, ids) + 1;
-
+    var newId = Math.max.apply(null, Object.keys(_dic).concat(999)) + 1;
     _dic[newId] = playerName;
 
     var Model = db.model('TeamMember');
@@ -441,8 +441,11 @@ var playerDic = (function() {
       playerName: playerName,
       playerId: newId,
     });
+    promisize(player.save, player).catch(function(err) {
+      console.error(err);
+    });
     
-    return promisize(player.save, player).pass(newId);
+    return newId;
   }
 }());
 

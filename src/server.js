@@ -22,4 +22,4 @@ var server = http.createServer(function(res, req) {
   app.api(res, req);
 });
 server.listen(config.port);
-console.log('Running server at http://localhost:' + config.port + '/\n');
+console.log('Running server at localhost:' + config.port + '\n');

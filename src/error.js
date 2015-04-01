@@ -85,4 +85,5 @@ module.exports = {
   toHttpData: toHttpData,
   NotFoundError: NotFoundError,
   AuthorizationError: AuthorizationError,
+  MissingParameterError: MissingParameterError,
 };

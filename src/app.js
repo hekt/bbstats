@@ -38,6 +38,7 @@ var apiActionSet = {
   GET: {
     score: getGameScoresByYear,
     stats: getStatsByDate,
+    'player/stats': getStatsByPlayerId,
   },
   PUT: {
     score: saveScore,
@@ -60,7 +61,7 @@ function api(req, res) {
       getRequestBodyAsync(req).then(JSON.parse) :
       Promise.resolve(urlObj.query);
   };
-  var target = urlObj.pathname.replace(/\/api\/([a-z_]+)/, '$1');
+  var target = urlObj.pathname.replace(/\/api\/([a-z_]+\/?[a-z_]*)/, '$1');
   var action = function() {
     var act = apiActionSet[req.method][target];
     return act ? getQuery().then(act) :
@@ -130,9 +131,27 @@ function getStatsByDate(query) {
       getRawStatsByDate('PitchingStats', date).then(formatPitching)
         .then(function(result) { stats.pitchingStats = result; }),
     ];
-    return Promise.all(promises).then(function() {
-      return stats;
-    });
+    return Promise.all(promises).pass(stats);
+  });
+}
+
+function getStatsByPlayerId(query) {
+  var pid = Number(query.playerId);
+
+  if (!isValidPlayerId(pid))
+    return Promise.reject(new error.MissingParameterError());
+
+  return getPlayerNames().then(function(nameDic) {
+    var formatBatting = formatBattingStatsForResponse.bind(null, nameDic);
+    var formatPitching = formatPitchingStatsForResponse.bind(null, nameDic);
+    var stats = {};
+    var promises = [
+      getRawStatsByPlayerId('BattingStats', pid).then(formatBatting)
+        .then(function(result) { stats.battingStats = result; }),
+      getRawStatsByPlayerId('PitchingStats', pid).then(formatPitching)
+        .then(function(result) { stats.pitchingStats = result; }),
+    ];
+    return Promise.all(promises).pass(stats);
   });
 }
 
@@ -151,8 +170,14 @@ function getGameScoresByYear(query) {
 }
 
 function getRawStatsByDate(statsKind, date) {
-  var dbQuery = db.model(statsKind)
-        .find(null, '-_id -__v').where({date: date}).sort('order appearanceOrder');
+  var dbQuery = db.model(statsKind).find(null, '-_id -__v')
+        .where({date: date}).sort('order appearanceOrder');
+  return promisize(dbQuery.exec, dbQuery);
+}
+
+function getRawStatsByPlayerId(statsKind, pid) {
+  var dbQuery = db.model(statsKind).find(null, '-_id -__v')
+        .where({playerId: pid}).sort('-date');
   return promisize(dbQuery.exec, dbQuery);
 }
 
@@ -379,7 +404,12 @@ function getPlayerIdFromNameDic(nameDic, name) {
 }
 
 function isValidDate(date) {
-  return date instanceof Date && date.toString() !== 'Invalid Date';
+  return date && date instanceof Date && date.toString() !== 'Invalid Date';
+}
+
+function isValidPlayerId(pid) {
+  return pid && typeof pid === 'number' && pid >= 0 &&
+    pid.toString() !== 'NaN' && pid.toString() !== 'Infinity';
 }
 
 var playerDic = (function() {

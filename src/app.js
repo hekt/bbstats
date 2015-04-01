@@ -1,5 +1,6 @@
 'use strict';
 
+
 // =============================================================
 // Modules
 // =============================================================
@@ -144,17 +145,32 @@ function getStatsByPlayerId(query) {
   return getPlayerNames().then(function(nameDic) {
     var formatBatting = formatBattingStatsForResponse.bind(null, nameDic);
     var formatPitching = formatPitchingStatsForResponse.bind(null, nameDic);
-    var stats = {
-      playerId: pid,
-      playerName: nameDic[pid],
+    var player = {
+      id: pid,
+      name: nameDic[pid],
+      batting: {},
+      pitching: {},
     };
     var promises = [
       getRawStatsByPlayerId('BattingStats', pid).then(formatBatting)
-        .then(function(result) { stats.battingResults = result; }),
+        .then(function(results) {
+          player.batting.results = results;
+          if (results.length)
+            player.batting.stats = {
+              total: calcBattingStats(results),
+              risp: calcBattingStatsRisp(results),
+            };
+        }),
       getRawStatsByPlayerId('PitchingStats', pid).then(formatPitching)
-        .then(function(result) { stats.pitchingResults = result; }),
+        .then(function(results) {
+          player.pitching.results = results;
+          if (results.length)
+            player.pitching.stats = {
+              total: calcPitchingStats(results),
+            };
+        }),
     ];
-    return Promise.all(promises).pass(stats);
+    return Promise.all(promises).pass(player);
   });
 }
 
@@ -250,6 +266,131 @@ function parseAuthorizationHeader(header) {
     scheme: splited[0],
     param: splited[1],
   };
+}
+
+
+// ------------------------------------------------------------
+// Calculate stats
+// ------------------------------------------------------------
+
+function calcBattingStats(results) {
+  var atbats = [];
+  results.forEach(function(result) {
+    atbats = atbats.concat(result.atbats);
+  });
+
+  var stats = calcBattingStatsInner(atbats);
+  stats.g = results.length;
+  ['run', 'sb', 'error'].forEach(function(stat) {
+    stats[stat] = myutil.sum(results.map(function(result) {
+      return Number(result[stat]) || 0;
+    }));
+  });
+  
+  return stats;
+}
+
+function calcBattingStatsRisp(results) {
+  var atbats = [];
+  results.forEach(function(result) {
+    atbats = atbats.concat(result.atbats);
+  });
+  atbats = atbats.filter(function(atbat) {
+    return atbat.runners.scond || atbat.runners.third;
+  });
+
+  return calcBattingStatsInner(atbats);
+}
+
+function calcBattingStatsInner(atbats) {
+  var counts = getResultCounts(atbats);
+  var stats = {
+    ab: counts.ab,
+    h: counts.h,
+    hr: counts.hr,
+    so: counts.so,
+    bb: counts.bb,
+    hbp: counts.hbp,
+  };
+
+  stats.rbi = myutil.sum(atbats.map(function(atbat) {
+    return Number(atbat.rbi) || 0;
+  }));
+  
+  var c = counts; // i want to use with statement in strict mode...
+  stats.avg = c.h / c.ab;
+  stats.obp = (c.h + c.bb + c.hbp) / (c.ab + c.bb + c.hbp + c.sf);
+  stats.slg = c.tb / c.ab;
+  stats.ops = stats.obp + stats.slg;
+
+  return stats;
+}
+
+function getResultCounts(atbats) {
+  var kinds = atbats.map(function(atbat) {
+    return atbat.resultKind;
+  });
+  var knownKinds = [
+    'h', 'dbl', 'tpl', 'hr', 'bb', 'ibb', 'hbp', 'sf', 'sh',
+    'go', 'fo', 'dp', 'so',
+  ];
+  var noAtbatKinds = ['bb', 'ibb', 'hbp', 'sf', 'sh'];
+  
+  var r = {pa: 0, ab: 0};
+  knownKinds.forEach(function(k) { r[k] = 0; });
+  
+  kinds.forEach(function(kind) {
+    r.pa++;
+    if (noAtbatKinds.indexOf(kind) < 0) r.ab++;
+    if (r[kind] !== undefined) {
+      r[kind]++;
+    } else {
+      r[kind] = 1;
+      console.warn('unknown kind:', kind);
+    }
+  });
+
+  r.h = r.h + + r.dbl + r.tpl + r.hr;
+  r.bb = r.bb + r.ibb;
+  r.tb = r.h + r.dbl + r.tpl*2 + r.hr*3;
+  r.out = r.fo + r.go + r.dp;
+  
+  return r;
+}
+
+function calcPitchingStats(results) {
+  var stats = {
+    g: results.length,
+    win: 0,
+    lose: 0,
+    hold: 0,
+    save: 0,
+  };
+
+  results.forEach(function(result) {
+    var r = result.result;
+    if (r) stats[r]++;
+  });
+
+  var statKinds = [
+    'out', 'bf', 'run', 'erun', 'so', 'bb', 'h', 'hit', 'hr', 'error'
+  ];
+  statKinds.forEach(function(stat) {
+    stats[stat] = myutil.sum(results.map(function(result) {
+      return Number(result[stat]) || 0;
+    }));
+  });
+
+  var s = stats;
+  stats.h = stats.h | stats.hit;
+  stats.bf = stats.bf || s.out + s.bb + s.h + s.error;
+  stats.era = (s.erun * 3 * 9) / s.out;
+  stats.avg = s.f / (s.bf - s.bb);
+  stats.whip = (s.h + s.bb) / (s.out / 3);
+  stats.k9 = (s.so * 9) / (s.out / 3);
+  stats.wpct = s.win / s.win + s.lose;
+
+  return stats;
 }
 
 

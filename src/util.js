@@ -80,6 +80,14 @@ myutil.randomString = function(size) {
   return randoms.then(base64url);
 };
 
+myutil.sum = function(ns) {
+  if (ns.length === 0) return 0;
+  return ns.reduce(function(x, y) {
+    return x + y;
+  });
+};
+
+
 
 // ------------------------------------------------------------
 // Export

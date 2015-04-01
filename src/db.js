@@ -51,6 +51,7 @@ var GameScore = db.model('GameScore', gameScoreSchema);
 
 var atbatSchema = new Schema({
   inning: {type: Number, require: true},
+  rbi: {type: Number, require: true},
   runners: {
     first: {type: Boolean, require: true},
     second: {type: Boolean, require: true},
@@ -67,7 +68,6 @@ var battingStatSchema = new Schema({
   positions: [{type: String}],
   date: {type: Date, require: true},
   ground: {type: String, require: true},
-  rbi: {type: Number, require: true},
   run: {type: Number, require: true},
   sb: {type: Number, require: true},
   error: {type: Number, require: true},
@@ -80,12 +80,15 @@ var pitchingStatSchema = new Schema({
   date: {type: Date, require: true},
   ground: {type: String, require: true},
   out: {type: Number, require: true},
+  bf: {type: Number, require: true},
   run: {type: Number, require: true},
   erun: {type: Number, require: true},
   so: {type: Number, require: true},
   bb: {type: Number, require: true},
-  hit: {type: Number, require: true},
-  error: {type: Number, require: true}
+  h: {type: Number, require: true},
+  hr: {type: Number, require: true},
+  error: {type: Number, require: true},
+  result: {type: String, require: true},
 });
 var PitchingStat = db.model("PitchingStats", pitchingStatSchema);
 

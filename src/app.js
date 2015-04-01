@@ -144,12 +144,15 @@ function getStatsByPlayerId(query) {
   return getPlayerNames().then(function(nameDic) {
     var formatBatting = formatBattingStatsForResponse.bind(null, nameDic);
     var formatPitching = formatPitchingStatsForResponse.bind(null, nameDic);
-    var stats = {};
+    var stats = {
+      playerId: pid,
+      playerName: nameDic[pid],
+    };
     var promises = [
       getRawStatsByPlayerId('BattingStats', pid).then(formatBatting)
-        .then(function(result) { stats.battingStats = result; }),
+        .then(function(result) { stats.battingResults = result; }),
       getRawStatsByPlayerId('PitchingStats', pid).then(formatPitching)
-        .then(function(result) { stats.pitchingStats = result; }),
+        .then(function(result) { stats.pitchingResults = result; }),
     ];
     return Promise.all(promises).pass(stats);
   });
@@ -340,9 +343,6 @@ function formatBattingStatsForResponse(nameDic, docs) {
   docs.forEach(function(doc) {
     var player = doc.toObject();
 
-    delete player.date;
-    delete player.ground;
-
     player.name = nameDic[player.playerId] || player.playerId;
     player.atbats = player.atbats.filter(function(atbat) {
       return !!atbat.result;
@@ -358,9 +358,6 @@ function formatPitchingStatsForResponse(nameDic, docs) {
   var players = [];
   docs.forEach(function(doc) {
     var player = doc.toObject();
-
-    delete player.date;
-    delete player.ground;
 
     player.name = nameDic[player.playerId] || 'anonymous';
 

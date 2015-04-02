@@ -4,12 +4,16 @@
 // Modules
 // ------------------------------------------------------------
 
+var AES = require('crypto-js/AES');
+var enc = require('crypto-js').enc;
+
 // polyfill
 var Promise = require('es6-promise').Promise;
 
 // my module
 var config = require('./config');
 var myutil = require('./util');
+var promisize = myutil.promisize;
 var db = require('./db');
 var error = require('./error');
 
@@ -25,6 +29,11 @@ AccessToken.verify = verifyAccessToken;
 // AccessToken.issue(): Promise String
 AccessToken.issue = issueAccessToken;
 
+function CommonKey() {}
+
+// SharedKey.verify(user:String, nonce:String, body:String): Promise ()
+CommonKey.verify = verifyCommonKeyNonce;
+CommonKey.register = registerCommonKey;
 
 // ------------------------------------------------------------
 // Database Models
@@ -33,12 +42,17 @@ AccessToken.issue = issueAccessToken;
 var Schema = db.Schema;
 
 // Access Token
-
 var accessTokenSchema = new Schema({
   token: {type: String, require: true}
 });
 var AccessTokenModel = db.model('AccessToken', accessTokenSchema);
 
+// Shared Key
+var commonKeySchema = new Schema({
+  user: {type: String, require: true},
+  key: {type: String, require: true},
+});
+var CommonKeyModel = db.model('CommonKey', commonKeySchema);
 
 // ------------------------------------------------------------
 // AccessToken
@@ -67,9 +81,45 @@ function saveAccessToken(token) {
 
 
 // ------------------------------------------------------------
+// CommonKey
+// ------------------------------------------------------------
+
+function verifyCommonKeyNonce(user, nonce, body) {
+  function decipher(doc) {
+    if (!doc) return Promise.reject(new error.AuthorizationError());
+    return AES.decrypt(body, doc.key).toString(enc.Utf8);
+  }
+  
+  function verify(obj) {
+    return new Promise(function(resolve, reject) {
+      var now = Date.now();
+      var stamp = new Date(obj.timestamp);
+      if (Math.abs(now - stamp) > 1000 * 60 * 5)
+        reject(new error.AuthorizationError('expired'));
+      if (nonce !== obj.nonce)
+        reject(new error.AuthorizationError('invalid nonce'));
+      resolve();
+    });
+  }
+
+  if (!user || !nonce || !body)
+    return Promise.reject(new error.AuthorizationError());
+  
+  var find = CommonKeyModel.findOne.bind(CommonKeyModel, {user: user});
+  return promisize(find).then(decipher).then(JSON.parse).pierce(verify);
+}
+
+function registerCommonKey(user, key) {
+  var keyModel = new CommonKeyModel({user: user, key: key});
+  return promisize(keyModel.save, keyModel);
+}
+
+
+// ------------------------------------------------------------
 // Export
 // ------------------------------------------------------------
 
 module.exports = {
   AccessToken: AccessToken,
+  CommonKey: CommonKey,
 };

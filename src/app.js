@@ -18,6 +18,7 @@ var db = require('./db');
 var error = require('./error.js');
 var myutil = require('./util.js');
 var promisize = myutil.promisize;
+var CommonKey = require('./auth').CommonKey;
 var AccessToken = require('./auth').AccessToken;
 
 
@@ -50,26 +51,30 @@ var apiActionSet = {
 
 function api(req, res) {
   var urlObj = url.parse(req.url, true);
-  
-  var authorize = function() {
-    var authRequired = req.method !== 'GET';
-    return  authRequired ?
-      authorization(req.headers.authorization) : Promise.resolve();
-  };
+
   var getQuery = function() {
-    var requestHasBody = req.method === 'POST' || req.method === 'PUT';
+    var requestHasBody = req.method !== 'GET';
     return requestHasBody ?
-      getRequestBodyAsync(req).then(JSON.parse) :
-      Promise.resolve(urlObj.query);
+      getRequestBodyAsync(req) : Promise.resolve(urlObj.query);
   };
-  var target = urlObj.pathname.replace(/\/api\/([a-z_]+\/?[a-z_]*)/, '$1');
+  var decrypt = function(body) {
+    var decryptRequired = req.method !== 'GET';
+    if (!decryptRequired) {
+      return Promise.resolve(body);
+    } else {
+      var user = req.headers.authorization.replace(/Common ([a-z0-9]+)/, '$1');
+      return CommonKey.decrypt(user, body);
+    }
+  };
+  
   var action = function() {
+    var target = urlObj.pathname.replace(/\/api\/([a-z_]+\/?[a-z_]*)/, '$1');
     var act = apiActionSet[req.method][target];
-    return act ? getQuery().then(act) :
+    return act ? getQuery().then(decrypt).then(act) :
       Promise.reject(new error.NotFoundError());
   };
 
-  return authorize().then(action)
+  return action()
     .then(writeSuccessResponse.bind(null, req, res))
     .catch(writeErrorResponse.bind(null, req, res));
 }
@@ -125,12 +130,12 @@ function getStatsByDate(query) {
   return getPlayerNames().then(function(nameDic) {
     var formatBatting = formatBattingStatsForResponse.bind(null, nameDic);
     var formatPitching = formatPitchingStatsForResponse.bind(null, nameDic);
-    var stats = {};
+    var stats = {batting: {}, pitching: {}};
     var promises = [
       getRawStatsByDate('BattingStats', date).then(formatBatting)
-        .then(function(result) { stats.battingStats = result; }),
+        .then(function(result) { stats.batting.results = result; }),
       getRawStatsByDate('PitchingStats', date).then(formatPitching)
-        .then(function(result) { stats.pitchingStats = result; }),
+        .then(function(result) { stats.pitching.results = result; }),
     ];
     return Promise.all(promises).pass(stats);
   });

@@ -62,7 +62,7 @@ function api(req, res) {
     if (!decryptRequired) {
       return Promise.resolve(body);
     } else {
-      var user = req.headers.authorization.replace(/Common ([a-z0-9]+)/, '$1');
+      var user = req.headers['x-bbstats-authenticated-user'];
       return CommonKey.decrypt(user, body);
     }
   };
@@ -407,12 +407,11 @@ function formatDataFromRequest(data) {
   data.date = new Date(data.date);
 
   return playerDic.initAsync().then(function() {
-    var promises = [
+    return [
       formatGameScoreFromRequest(data),
       formatBattingStatsFromRequest(data),
       formatPitchingStatsFromRequest(data),
     ];
-    return Promise.all(promises);
   });
 }
 
@@ -421,7 +420,7 @@ function formatGameScoreFromRequest(data) {
   score.date = new Date(data.date);
   score.ground = data.ground;
 
-  return Promise.resolve(score);
+  return score;
 }
 
 function formatBattingStatsFromRequest(data) {

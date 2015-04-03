@@ -85,19 +85,17 @@ function saveAccessToken(token) {
 
 function decryptCommonKey(user, body) {
   function decipher(doc) {
-    if (!doc) return Promise.reject(
-      new error.AuthorizationError('unknown user')
-    );
-
-    var result;
-    try {
-      result = AES.decrypt(body, doc.key).toString(enc.Utf8);
-    } catch(e) {
-      if (e.message === 'Malformed UTF-8 data')
-        result = Promise.reject(new error.AuthorizationError('invalid key'));
-      else throw e;
-    }
-    return result;
+    return new Promise(function(resolve, reject) {
+      if (!doc) return reject(new error.AuthorizationError('unknown user'));
+      try {
+        var result = AES.decrypt(body, doc.key).toString(enc.Utf8);
+        resolve(result);
+      } catch (e) {
+        if (e.message === 'Malformed UTF-8 data')
+          reject(new error.AuthorizationError('invalid key'));
+        else reject(e);
+      }
+    });
   }
   
   function verify(obj) {

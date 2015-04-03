@@ -31,8 +31,7 @@ AccessToken.issue = issueAccessToken;
 
 function CommonKey() {}
 
-// SharedKey.verify(user:String, nonce:String, body:String): Promise ()
-CommonKey.verify = verifyCommonKeyNonce;
+CommonKey.decrypt = decryptCommonKey;
 CommonKey.register = registerCommonKey;
 
 // ------------------------------------------------------------
@@ -84,7 +83,7 @@ function saveAccessToken(token) {
 // CommonKey
 // ------------------------------------------------------------
 
-function verifyCommonKeyNonce(user, nonce, body) {
+function decryptCommonKey(user, body) {
   function decipher(doc) {
     if (!doc) return Promise.reject(new error.AuthorizationError());
     return AES.decrypt(body, doc.key).toString(enc.Utf8);
@@ -96,13 +95,13 @@ function verifyCommonKeyNonce(user, nonce, body) {
       var stamp = new Date(obj.timestamp);
       if (Math.abs(now - stamp) > 1000 * 60 * 5)
         reject(new error.AuthorizationError('expired'));
-      if (nonce !== obj.nonce)
-        reject(new error.AuthorizationError('invalid nonce'));
+      if (!obj.nonce)
+        reject(new error.AuthorizationError('nonce required'));
       resolve();
     });
   }
 
-  if (!user || !nonce || !body)
+  if (!user || !body)
     return Promise.reject(new error.AuthorizationError());
   
   var find = CommonKeyModel.findOne.bind(CommonKeyModel, {user: user});

@@ -88,7 +88,16 @@ function decryptCommonKey(user, body) {
     if (!doc) return Promise.reject(
       new error.AuthorizationError('unknown user')
     );
-    return AES.decrypt(body, doc.key).toString(enc.Utf8);
+
+    var result;
+    try {
+      result = AES.decrypt(body, doc.key).toString(enc.Utf8);
+    } catch(e) {
+      if (e.message === 'Malformed UTF-8 data')
+        result = Promise.reject(new error.AuthorizationError('invalid key'));
+      else throw e;
+    }
+    return result;
   }
   
   function verify(obj) {

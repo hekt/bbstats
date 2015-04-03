@@ -85,7 +85,9 @@ function saveAccessToken(token) {
 
 function decryptCommonKey(user, body) {
   function decipher(doc) {
-    if (!doc) return Promise.reject(new error.AuthorizationError());
+    if (!doc) return Promise.reject(
+      new error.AuthorizationError('unknown user')
+    );
     return AES.decrypt(body, doc.key).toString(enc.Utf8);
   }
   
@@ -102,7 +104,7 @@ function decryptCommonKey(user, body) {
   }
 
   if (!user || !body)
-    return Promise.reject(new error.AuthorizationError());
+    return Promise.reject(new error.AuthorizationError('missing parameters'));
   
   var find = CommonKeyModel.findOne.bind(CommonKeyModel, {user: user});
   return promisize(find).then(decipher).then(JSON.parse).pierce(verify);

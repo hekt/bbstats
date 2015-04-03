@@ -41,6 +41,8 @@ var apiActionSet = {
     score: getGameScoresByYear,
     stats: getStatsByDate,
     'player/stats': getStatsByPlayerId,
+    'stats/batting': getBattingStats,
+    'stats/pitching': getPitchingStats,
   },
   PUT: {
     score: saveScore,
@@ -121,20 +123,65 @@ function writeErrorResponse(req, res, err) {
 // GET
 // -------------------------------------------------------------
 
+function getBattingStats(query) {
+  var Model = db.model('BattingStats');
+  var dbQuery = Model.find('-_id -__v');
+  var promise = promisize.bind(null, dbQuery.exec, dbQuery);
+  return playerDic.initAsync()
+    .pure(promise)
+    .then(formatBattingStatsForResponse)
+    .then(function(results) {
+      var groups = groupResultsByPlayer(results);
+      var l = [];
+      for (var pid in groups) {
+        l.push(calcBattingStats(groups[pid]));
+      }
+      return l;
+    });
+}
+
+function getPitchingStats(query) {
+  var Model = db.model('PitchingStats');
+  var dbQuery = Model.find('-_id -__v');
+  var promise = promisize.bind(null, dbQuery.exec, dbQuery);
+  return playerDic.initAsync()
+    .pure(promise)
+    .then(formatPitchingStatsForResponse)
+    .then(function(results) {
+      var groups = groupResultsByPlayer(results);
+      var l = [];
+      for (var pid in groups) {
+        var stats = calcPitchingStats(groups[pid]);
+        l.push(stats);
+      }
+      return l;
+    });
+}
+
+function groupResultsByPlayer(results) {
+  var obj = {};
+  results.forEach(function(result) {
+    var pid = result.playerId;
+    obj[pid] = obj[pid] || [];
+    obj[pid].push(result);
+  });
+  return obj;
+}
+
 function getStatsByDate(query) {
   var date = new Date(query.date);
   
   if (!isValidDate(date))
     return Promise.reject(new error.MissingParameterError());
   
-  return getPlayerNames().then(function(nameDic) {
-    var formatBatting = formatBattingStatsForResponse.bind(null, nameDic);
-    var formatPitching = formatPitchingStatsForResponse.bind(null, nameDic);
+  return playerDic.initAsync().then(function() {
     var stats = {batting: {}, pitching: {}};
     var promises = [
-      getRawStatsByDate('BattingStats', date).then(formatBatting)
+      getRawStatsByDate('BattingStats', date)
+        .then(formatBattingStatsForResponse)
         .then(function(result) { stats.batting.results = result; }),
-      getRawStatsByDate('PitchingStats', date).then(formatPitching)
+      getRawStatsByDate('PitchingStats', date)
+        .then(formatPitchingStatsForResponse)
         .then(function(result) { stats.pitching.results = result; }),
     ];
     return Promise.all(promises).pass(stats);
@@ -147,17 +194,16 @@ function getStatsByPlayerId(query) {
   if (!isValidPlayerId(pid))
     return Promise.reject(new error.MissingParameterError());
 
-  return getPlayerNames().then(function(nameDic) {
-    var formatBatting = formatBattingStatsForResponse.bind(null, nameDic);
-    var formatPitching = formatPitchingStatsForResponse.bind(null, nameDic);
+  return playerDic.initAsync().then(function() {
     var player = {
       id: pid,
-      name: nameDic[pid],
+      name: playerDic.getName(pid),
       batting: {},
       pitching: {},
     };
     var promises = [
-      getRawStatsByPlayerId('BattingStats', pid).then(formatBatting)
+      getRawStatsByPlayerId('BattingStats', pid)
+        .then(formatBattingStatsForResponse)
         .then(function(results) {
           player.batting.results = results;
           if (results.length)
@@ -166,7 +212,8 @@ function getStatsByPlayerId(query) {
               risp: calcBattingStatsRisp(results),
             };
         }),
-      getRawStatsByPlayerId('PitchingStats', pid).then(formatPitching)
+      getRawStatsByPlayerId('PitchingStats', pid)
+        .then(formatPitchingStatsForResponse)
         .then(function(results) {
           player.pitching.results = results;
           if (results.length)
@@ -175,7 +222,9 @@ function getStatsByPlayerId(query) {
             };
         }),
     ];
-    return Promise.all(promises).pass(player);
+    return Promise.all(promises).then(function() {
+      return player;
+    });
   });
 }
 
@@ -337,7 +386,7 @@ function getResultCounts(atbats) {
   });
   var knownKinds = [
     'h', 'dbl', 'tpl', 'hr', 'bb', 'ibb', 'hbp', 'sf', 'sh',
-    'go', 'fo', 'dp', 'so', 'uts',
+    'go', 'fo', 'dp', 'so', 'uts', 'e',
   ];
   var noAtbatKinds = ['bb', 'ibb', 'hbp', 'sf', 'sh'];
   
@@ -484,29 +533,25 @@ function addDateAndGroundToPlayers(obj, players) {
   });
 }
 
-function formatBattingStatsForResponse(nameDic, docs) {
+function formatBattingStatsForResponse(docs) {
   var players = [];
   docs.forEach(function(doc) {
     var player = doc.toObject();
-
-    player.name = nameDic[player.playerId] || player.playerId;
+    player.name = playerDic.getName(player.playerId);
     player.atbats = player.atbats.filter(function(atbat) {
       return !!atbat.result;
     });
-    
     players.push(player);
   });
 
   return players;
 }
 
-function formatPitchingStatsForResponse(nameDic, docs) {
+function formatPitchingStatsForResponse(docs) {
   var players = [];
   docs.forEach(function(doc) {
     var player = doc.toObject();
-
-    player.name = nameDic[player.playerId] || 'anonymous';
-
+    player.name = playerDic.getName(player.playerId);
     players.push(player);
   });
 
@@ -524,26 +569,6 @@ function getRequestBodyAsync(req) {
       err ? reject(err) : resolve(data.toString());
     }));
   });
-}
-
-function getPlayerNames() {
-  var dbQuery = db.model('TeamMember').find(null, '-_id -__v');
-  return promisize(dbQuery.exec, dbQuery).then(function(docs) {
-    var obj = {};
-    docs.forEach(function(doc) {
-      obj[doc.playerId] = doc.playerName;
-    });
-    return obj;
-  });
-}
-function getPlayerIdFromNameDic(nameDic, name) {
-  for (var k in nameDic) {
-    if (nameDic[k] === name) return k;
-  }
-  var ids = Object.keys(nameDic);
-  var newId = Math.max.apply(null, ids.push(1000)) + 1;
-  
-  return newId;
 }
 
 function isValidDate(date) {
@@ -567,11 +592,19 @@ var playerDic = (function() {
   };
 
   function init() {
-    return status === 1 ? Promise.resolve() :
-      getPlayerNames().then(function(dic) {
-        _dic = dic;
+    if (status === 1) {
+      return Promise.resolve();
+    } else {
+      var dbQuery = db.model('TeamMember').find(null, '-_id -__v');
+      return promisize(dbQuery.exec, dbQuery).then(function(docs) {
+        var obj = {};
+        docs.forEach(function(doc) {
+          obj[doc.playerId] = doc.playerName;
+        });
+        _dic = obj;
         status = 1;
       });
+    }
   }
 
   function getName(playerId) {

@@ -43,6 +43,7 @@ var apiActionSet = {
     'player/stats': getStatsByPlayerId,
     'stats/batting': getBattingStats,
     'stats/pitching': getPitchingStats,
+    'stats/both': getBothStats,
   },
   PUT: {
     score: saveScore,
@@ -123,6 +124,21 @@ function writeErrorResponse(req, res, err) {
 // GET
 // -------------------------------------------------------------
 
+function getBothStats(query) {
+  return playerDic.initAsync().then(function() {
+    var obj = {};
+    var promises = [
+      getBattingStats(query).then(function(stats) {
+        obj.batting = stats;
+      }),
+      getPitchingStats(query).then(function(stats) {
+        obj.pitching = stats;
+      }),
+    ];
+    return Promise.all(promises).pass(obj);
+  });
+}
+
 function getBattingStats(query) {
   var Model = db.model('BattingStats');
   var dbQuery = Model.find('-_id -__v');
@@ -134,7 +150,10 @@ function getBattingStats(query) {
       var groups = groupResultsByPlayer(results);
       var l = [];
       for (var pid in groups) {
-        l.push(calcBattingStats(groups[pid]));
+        var stats = calcBattingStats(groups[pid]);
+        stats.id = pid;
+        stats.name = playerDic.getName(pid);
+        l.push(stats);
       }
       return l;
     });
@@ -152,6 +171,8 @@ function getPitchingStats(query) {
       var l = [];
       for (var pid in groups) {
         var stats = calcPitchingStats(groups[pid]);
+        stats.id = pid;
+        stats.name = playerDic.getName(pid);
         l.push(stats);
       }
       return l;

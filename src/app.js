@@ -461,10 +461,10 @@ function calcPitchingStats(results) {
   stats.h = stats.h | stats.hit;
   stats.bf = stats.bf || s.out + s.bb + s.h + s.error;
   stats.era = (s.erun * 3 * 9) / s.out;
-  stats.avg = s.f / (s.bf - s.bb);
+  stats.avg = s.h / (s.bf - s.bb);
   stats.whip = (s.h + s.bb) / (s.out / 3);
   stats.k9 = (s.so * 9) / (s.out / 3);
-  stats.wpct = s.win / s.win + s.lose;
+  stats.wpct = s.win / (s.win + s.lose);
 
   return stats;
 }

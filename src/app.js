@@ -151,7 +151,7 @@ function getBattingStats(query) {
       var l = [];
       for (var pid in groups) {
         var stats = calcBattingStats(groups[pid]);
-        stats.id = pid;
+        stats.playerId = pid;
         stats.name = playerDic.getName(pid);
         l.push(stats);
       }
@@ -171,7 +171,7 @@ function getPitchingStats(query) {
       var l = [];
       for (var pid in groups) {
         var stats = calcPitchingStats(groups[pid]);
-        stats.id = pid;
+        stats.playerId = pid;
         stats.name = playerDic.getName(pid);
         l.push(stats);
       }
@@ -217,7 +217,7 @@ function getStatsByPlayerId(query) {
 
   return playerDic.initAsync().then(function() {
     var player = {
-      id: pid,
+      playerId: pid,
       name: playerDic.getName(pid),
       batting: {},
       pitching: {},

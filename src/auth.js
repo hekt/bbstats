@@ -4,7 +4,7 @@
 // Modules
 // ------------------------------------------------------------
 
-var AES = require('crypto-js/AES');
+var AES = require('crypto-js/aes');
 var enc = require('crypto-js').enc;
 
 // polyfill

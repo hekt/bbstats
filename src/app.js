@@ -407,9 +407,9 @@ function getResultCounts(atbats) {
   });
   var knownKinds = [
     'h', 'dbl', 'tpl', 'hr', 'bb', 'ibb', 'hbp', 'sf', 'sh',
-    'go', 'fo', 'dp', 'so', 'uts', 'e',
+    'go', 'fo', 'dp', 'so', 'uts', 'e', 'she',
   ];
-  var noAtbatKinds = ['bb', 'ibb', 'hbp', 'sf', 'sh'];
+  var noAtbatKinds = ['bb', 'ibb', 'hbp', 'sf', 'sh', 'she'];
   
   var r = {pa: 0, ab: 0};
   knownKinds.forEach(function(k) { r[k] = 0; });
@@ -430,6 +430,8 @@ function getResultCounts(atbats) {
   r.tb = r.h + r.dbl + r.tpl*2 + r.hr*3;
   r.out = r.fo + r.go + r.dp;
   r.so = r.so + r.uts;
+  r.sh = r.sh + r.she;
+  r.e = r.e + r.she;
   
   return r;
 }

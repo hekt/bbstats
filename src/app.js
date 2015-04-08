@@ -114,7 +114,7 @@ function writeErrorResponse(req, res, err) {
   res.writeHead(status, header);
   res.end(content);
 
-  // if (data.statusCode === 500)
+  if (data.statusCode === 500)
     console.error(err, err.stack);
   return err;
 }

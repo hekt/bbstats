@@ -55,38 +55,23 @@ helper.buildUrl = function(pathname, query) {
   });
 };
 
-helper.saveScores = function(numberOfScores) {
+helper.saveScore = function() {
   var Model = db.model('GameScore');
-  
-  var promises = [];
-  var len = mocks.gameScoreList.length;
-  var score;
-  for (var i = 0; i < numberOfScores; i++) {
-    score = new Model(mocks.gameScoreList[i % len]);
-    promises.push(myutil.promisize(score.save, score));
-  }
-
-  return Promise.all(promises);
+  var score = new Model(mocks.scoreMock);
+  return  myutil.promisize(score.save, score);
 };
 
-helper.saveStats = function(model, numberOfStats) {
+helper.saveResults = function(model) {
   var Model = db.model(model);
-  var mockList;
+  var mock;
   if (model === 'BattingStats') {
-    mockList = mocks.battingStatsList;
+    mock = mocks.battingMock;
   } else {
-    mockList = mocks.pitchingStatsList;
+    mock = mocks.pitchingMock;
   }
 
-  var promises = [];
-  var len = mockList.length;
-  var stat;
-  for (var i = 0; i < numberOfStats; i++) {
-    stat = new Model(mockList[i % len]);
-    promises.push(myutil.promisize(stat.save, stat));
-  }
-
-  return Promise.all(promises);
+  var results = new Model(mock);
+  return myutil.promisize(results.save, results);
 };
 
 

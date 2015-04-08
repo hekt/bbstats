@@ -38,9 +38,9 @@ init(dbUri, dbModels);
 // Tests
 // ------------------------------------------------------------
 
-describe('app.js', function() {
-  describe('app.api with GET invalid url', function() {
-    it('sends 404', function(done) {
+describe('app.api', function() {
+  describe('404', function() {
+    it('GET unknown url', function(done) {
       var expected = 404;
       
       var res = httpMocks.createResponse();
@@ -56,239 +56,107 @@ describe('app.js', function() {
     });
   });
 
-  describe('app.api with GET /api/score', function() {
-    it('sends 200 with json', function(done) {
-      var input = 2012;
-      var expectedStatus = 200;
-      var expectedType = 'application/json; charset=utf-8';
-      var expectedContent = helper.viaJSON(mocks.gameScoreList.slice(0, 3));
-
+  describe('200 application/json', function() {
+    function json200(res) {
+      res.statusCode.should.equal(200);
+      res.getHeader('content-type').should
+        .equal('application/json; charset=utf-8');
+      JSON.parse(res._getData());
+    }
+    
+    it('GET /api/score', function(done) {
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
         method: 'GET',
-        url: helper.buildUrl('/api/score', {year: input}),
+        url: '/api/score',
       });
+      var api = app.api.bind(null, req, res);
 
-      helper.saveScores(3).then(app.api.bind(null, req, res))
-        .then(function() {
-          res.statusCode.should.equal(expectedStatus);
-          res.getHeader('content-type').should.equal(expectedType);
-          var actualContent = JSON.parse(res._getData());
-          actualContent.should.eql(expectedContent);
-          done();
-        })
-        .catch(done);
+      helper.saveScore().then(api).then(function() {
+        json200(res);
+        done();
+      }).catch(done);
     });
-  });
 
-  describe('app.api with GET /api/stats', function() {
-    it('sends 200 with json', function(done) {
-      var input = '2012-05-20';
-
+    it('GET /api/stats', function(done) {
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
         method: 'GET',
-        url: helper.buildUrl('/api/stats', {date: input}),
+        url: helper.buildUrl('/api/stats', {date: '2015-03-27'}),
       });
-
+      var api = app.api.bind(null, req, res);
+      
       var promises = [
-        helper.saveStats('BattingStats', 2),
-        helper.saveStats('PitchingStats', 2),
+        helper.saveResults('BattingStats'),
+        helper.saveResults('PitchingStats'),
       ];
 
-      Promise.all(promises).then(app.api.bind(null, req, res))
-        .then(function() {
-          res.statusCode.should.equal(200);
-          res.getHeader('content-type').should
-            .equal('application/json; charset=utf-8');
-          
-          var actualContent = JSON.parse(res._getData());
-          actualContent.should.have.keys(['battingStats', 'pitchingStats']);
-
-          var statKeys = ['date', 'ground', 'players'];
-          
-          var actualBatting = actualContent.battingStats;
-          actualBatting.should.have.keys(statKeys);
-          var actualBatKeys = Object.keys(actualBatting.players[0]);
-          actualBatKeys.should.have.length(8);
-
-          var actualPitching = actualContent.pitchingStats;
-          actualPitching.should.have.keys(statKeys);
-          var actualPitKeys = Object.keys(actualPitching.players[0]);
-          actualPitKeys.should.have.length(9);
-
-          done();
-        }).catch(done);
-    });
-  });
-
-  describe('app.api with Unauthorized PUT', function() {
-    it('sends 401 when no authorization header', function(done) {
-      var expected = 401;
-
-      var res = httpMocks.createResponse();
-      var req = httpMocks.createRequest({
-        method: 'PUT',
-        url: 'unrelated',
-      });
-
-      app.api(req, res).then(function() {
-        res.statusCode.should.equal(expected);
+      Promise.all(promises).then(api).then(function() {
+        json200(res);
         done();
       }).catch(done);
     });
-    it('sends 401 when invalid auth header', function(done) {
-      var expected = 401;
 
+    it('GET /api/player/stats', function(done) {
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
-        method: 'PUT',
-        url: 'unrelated',
-        headers: {'Authorization': 'foo bar'},
+        method: 'GET',
+        url: helper.buildUrl('/api/player/stats', {playerId: 6}),
       });
+      var api = app.api.bind(null, req, res);
 
-      app.api(req, res).then(function() {
-        res.statusCode.should.equal(expected);
+      helper.saveResults('BattingStats').then(api).then(function() {
+        json200(res);
         done();
       }).catch(done);
     });
-    it('sends 401 when invalid token', function(done) {
-      var expected = 401;
 
+    it('GET /api/stats/batting', function(done) {
       var res = httpMocks.createResponse();
       var req = httpMocks.createRequest({
-        method: 'PUT',
-        url: 'unrelated',
-        headers: {'Authorization': 'Token invalidtoken'},
+        method: 'GET',
+        url: '/api/stats/batting',
       });
+      var api = app.api.bind(null, req, res);
 
-      app.api(req, res).then(function() {
-        res.statusCode.should.equal(expected);
+      helper.saveResults('BattingStats').then(api).then(function() {
+        json200(res);
         done();
       }).catch(done);
     });
-  });
 
-  describe('app.api with Authorized PUT invalid url', function() {
-    it('sends 404', function(done) {
-      var expected = 404;
+    it('GET /api/stats/pitching', function(done) {
+      var res = httpMocks.createResponse();
+      var req = httpMocks.createRequest({
+        method: 'GET',
+        url: '/api/stats/pitching',
+      });
+      var api = app.api.bind(null, req, res);
 
-      AccessToken.issue().then(function(token) {
-        var res = httpMocks.createResponse();
-        var req = httpMocks.createRequest({
-          method: 'PUT',
-          url: '/path/to/invalid/url',
-          headers: {authorization: 'Token ' + token},
-        });
-        req.pipe = helper.createPipeMock('');
-
-        var api = app.api.bind(app, req, res);
-
-        return app.api(req, res).then(function() {
-          res.statusCode.should.equal(expected);
-          done();
-        });
+      helper.saveResults('PitchingStats').then(api).then(function() {
+        json200(res);
+        done();
       }).catch(done);
     });
-  });
 
-  describe('app.api with Authorized PUT /api/score', function() {
-    it('sends 400 if receives no data', function(done) {
-      var data = '';
-      var expected = 400;
+    it('GET /api/stats/both', function(done) {
+      var res = httpMocks.createResponse();
+      var req = httpMocks.createRequest({
+        method: 'GET',
+        url: '/api/stats/both',
+      });
+      var api = app.api.bind(null, req, res);
 
-      AccessToken.issue().then(function(token) {
-        var res = httpMocks.createResponse();
-        var req = httpMocks.createRequest({
-          method: 'PUT',
-          url: '/api/score',
-          headers: {authorization: 'Token ' + token},
-        });
-        req.pipe = helper.createPipeMock(data);
+      var promises = [
+        helper.saveResults('BattingStats'),
+        helper.saveResults('PitchingStats'),
+      ];
 
-        return app.api(req, res).then(function() {
-          res.statusCode.should.equal(expected);
-          done();
-        });
+      Promise.all(promises).then(api).then(function() {
+        json200(res);
+        done();
       }).catch(done);
     });
-    it('sends 400 if receives invalid data', function(done) {
-      var data = 'invalid';
-      var expected = 400;
-
-      AccessToken.issue().then(function(token) {
-        var res = httpMocks.createResponse();
-        var req = httpMocks.createRequest({
-          method: 'PUT',
-          url: '/api/score',
-          headers: {authorization: 'Token ' + token},
-        });
-        req.pipe = helper.createPipeMock(data);
-
-        return app.api(req, res).then(function() {
-          res.statusCode.should.equal(expected);
-          done();
-        });
-      }).catch(done);
-    });
-    it('sends 201 and Location header', function(done) {
-      var data = mocks.example20150315.json;
-      var expectedStatus = 201;
-      var expectedLocation = 'http://localhost/score/2015-03-15';
-
-      AccessToken.issue().then(function(token) {
-        var res = httpMocks.createResponse();
-        var req = httpMocks.createRequest({
-          method: 'PUT',
-          url: 'http://localhost/api/score',
-          headers: {authorization: 'Token ' + token},
-        });
-        req.pipe = helper.createPipeMock(data);
-
-        return app.api(req, res).then(function() {
-          res.statusCode.should.equal(expectedStatus);
-          res.getHeader('Location').should.equal(expectedLocation);
-          done();
-        });
-      }).catch(done);
-    });
-    // it('saves data if receives valid data', function(done) {
-    //   var data = mocks.example20150315.json;
-    //   var expectedScore = helper.viaJSON(mocks.allData.score);
-    //   var expectedBattingStats = helper.viaJSON(mocks.allData.batting);
-    //   var expectedPitchingStats = helper.viaJSON(mocks.allData.pitching);
-
-    //   AccessToken.issue().then(function(token) {
-    //     var res = httpMocks.createResponse();
-    //     var req = httpMocks.createRequest({
-    //       method: 'PUT',
-    //       url: '/api/score',
-    //       headers: {authorization: 'Token ' + token},
-    //     });
-    //     req.pipe = helper.createPipeMock(data);
-
-    //     return app.api(req, res).then(function() {
-    //       var promises = [];
-    //       promises.push(
-    //         helper.findOne('GameScore').then(function(doc) {
-    //           doc.toObject().should.eql(expectedScore);
-    //         })
-    //       );
-    //       promises.push(
-    //         helper.findAll('BattingStats').then(function(docs) {
-    //           helper.toObjects(docs).should.eql(expectedBattingStats);
-    //         })
-    //       );
-    //       promises.push(
-    //         helper.findAll('PitchingStats').then(function(docs) {
-    //           helper.toObjects(docs).should.eql(expectedPitchingStats);
-    //         })
-    //       );
-
-    //       return Promise.all(promises).then(function() { done(); });
-    //     });
-    //   }).catch(done);
-    // });
   });
   
 });

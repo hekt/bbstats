@@ -8,6 +8,7 @@ var Promise = require('es6-promise').Promise;
 var url = require('url');
 
 var myutil = require('../src/util');
+var promisize = myutil.promisize;
 var db = require('../src/db');
 var mocks = require('./mocks');
 
@@ -32,14 +33,14 @@ helper.findAll = function(model, query) {
   var Model = db.model(model);
   var dbQuery = Model.find(query, '-_id -__v');
 
-  return myutil.promisize(dbQuery.exec, dbQuery);
+  return promisize(dbQuery.exec, dbQuery);
 };
 
 helper.findOne = function(model, query) {
   var Model = db.model(model);
   var dbQuery = Model.findOne(query, '-_id -__v');
 
-  return myutil.promisize(dbQuery.exec, dbQuery);
+  return promisize(dbQuery.exec, dbQuery);
 };
 
 helper.createPipeMock = function(data) {
@@ -58,7 +59,7 @@ helper.buildUrl = function(pathname, query) {
 helper.saveScore = function() {
   var Model = db.model('GameScore');
   var score = new Model(mocks.scoreMock);
-  return  myutil.promisize(score.save, score);
+  return promisize(score.save, score);
 };
 
 helper.saveResults = function(model) {
@@ -71,8 +72,23 @@ helper.saveResults = function(model) {
   }
 
   var results = new Model(mock);
-  return myutil.promisize(results.save, results);
+  return promisize(results.save, results);
 };
+
+helper.saveMembers = function() {
+  var Model = db.model('TeamMember');
+  var members = mocks.memberDic;
+  var promises = [];
+  for (var pid in members) {
+    var member = new Model({
+      playerId: pid,
+      playerName: members[pid],
+    });
+    promises.push(promisize(member.save, member));
+  }
+  return Promise.all(promises);
+};
+
 
 
 // ------------------------------------------------------------

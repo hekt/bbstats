@@ -63,6 +63,7 @@ var atbatSchema = new Schema({
 }, {_id: false});
 var battingStatSchema = new Schema({
   playerId: {type: Number, require: true},
+  playerName: {type: String, require: true},
   order: {type: Number, require: true},
   appearanceOrder: {type: Number, require: true},
   positions: [{type: String}],
@@ -77,6 +78,7 @@ var BattingStat = db.model('BattingStats', battingStatSchema);
 
 var pitchingStatSchema = new Schema({
   playerId: {type: Number, require: true},
+  playerName: {type: String, require: true},
   date: {type: Date, require: true},
   ground: {type: String, require: true},
   out: {type: Number, require: true},

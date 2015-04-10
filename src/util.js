@@ -87,6 +87,14 @@ myutil.sum = function(ns) {
   });
 };
 
+myutil.isValidDate = function(date) {
+  return date && date instanceof Date && date.toString() !== 'Invalid Date';
+};
+
+myutil.isValidPlayerId = function(pid) {
+  return pid && typeof pid === 'number' && pid >= 0 &&
+    pid.toString() !== 'NaN' && pid.toString() !== 'Infinity';
+};
 
 
 // ------------------------------------------------------------

@@ -13,13 +13,10 @@ var strftime = require('strftime');
 var Promise = require('es6-promise').Promise;
 
 // app module
-var config = require('./config');
-var db = require('./db');
 var error = require('./error.js');
 var myutil = require('./util.js');
-var promisize = myutil.promisize;
+var Action = require('./action').Action;
 var CommonKey = require('./auth').CommonKey;
-var AccessToken = require('./auth').AccessToken;
 
 
 // =============================================================
@@ -27,8 +24,6 @@ var AccessToken = require('./auth').AccessToken;
 // =============================================================
 
 var app = {};
-
-// app#api(req:http.clientRequest, res:http.ServerResponse): Promise(result)
 app.api = api;
 
 
@@ -38,71 +33,29 @@ app.api = api;
 
 var apiActionSet = {
   GET: {
-    score: getGameScoresByYear,
+    members: getMembers,
+    score: getScoresByYear,
     stats: getStatsByDate,
-    'player/stats': getStatsByPlayerId,
-    'stats/batting': getBattingStats,
-    'stats/pitching': getPitchingStats,
-    'stats/both': getBothStats,
+    'player/stats': getStatsByPlayer,
+    'stats/both': getAllStats,
   },
   PUT: {
     score: saveScore,
   },
-  DELETE: {},
-  POST: {},
+  // DELETE: {},
+  // POST: {},
 };
 
 function api(req, res) {
   var urlObj = url.parse(req.url, true);
-
-  var getQuery = function() {
-    var requestHasBody = req.method !== 'GET';
-    return requestHasBody ?
-      getRequestBodyAsync(req) : Promise.resolve(urlObj.query);
-  };
-  var decrypt = function(body) {
-    var decryptRequired = req.method !== 'GET';
-    if (!decryptRequired) {
-      return Promise.resolve(body);
-    } else {
-      var user = req.headers['x-bbstats-authenticated-user'];
-      return CommonKey.decrypt(user, body);
-    }
-  };
+  var target = urlObj.pathname.replace(/\/api\/([a-z_]+\/?[a-z_]*)/, '$1');
+  var action = apiActionSet[req.method][target];
+  var errorHandler = writeErrorResponse.bind(null, req, res);
   
-  var action = function() {
-    var target = urlObj.pathname.replace(/\/api\/([a-z_]+\/?[a-z_]*)/, '$1');
-    var act = apiActionSet[req.method][target];
-    return act ? getQuery().then(decrypt).then(act) :
-      Promise.reject(new error.NotFoundError());
-  };
-
-  return action()
-    .then(writeSuccessResponse.bind(null, req, res))
-    .catch(writeErrorResponse.bind(null, req, res));
-}
-
-function writeSuccessResponse(req, res, result) {
-  var status, header, content;
-  var responseHasBody = req.method === 'GET';
-  var resourcesCreated = req.method === 'PUT';
-  if (responseHasBody) {
-    status = 200;
-    header = {'content-type': 'application/json; charset=utf-8'};
-    content = JSON.stringify(result) + '\n';
-  } else if (resourcesCreated) {
-    var u = url.parse(req.url);
-    var loc = 'http://' + u.host + '/score/' + strftime('%F', result);
-    status = 201;
-    header = {'Location': loc};
-  } else {
-    status = 204;
-  }
-
-  res.writeHead(status, header);
-  res.end(content);
-
-  return 'success';
+  if (!action)
+    return Promise.reject(new error.NotFoundError()).catch(errorHandler);
+  else
+    return action(req, res).catch(errorHandler);
 }
 
 function writeErrorResponse(req, res, err) {
@@ -114,9 +67,28 @@ function writeErrorResponse(req, res, err) {
   res.writeHead(status, header);
   res.end(content);
 
-  if (data.statusCode === 500)
+  // if (data.statusCode === 500)
     console.error(err, err.stack);
+  
   return err;
+}
+
+
+// ------------------------------------------------------------
+// PUT
+// ------------------------------------------------------------
+
+function saveScore(req, res) {
+  var action = new Action();
+  var models = ['GameScore', 'BattingStats', 'PitchingStats'];
+  return action.read(req).format(formatDataFromRequest)
+    .saveEach(models).getPromise().then(function(data) {
+      var u = url.parse(req.url);
+      var loc = 'http://' + u.host + '/score/' +
+            strftime('%F', data.GameScore.date);
+      res.writeHead(201, {Location: loc});
+      res.end();
+    });
 }
 
 
@@ -124,59 +96,198 @@ function writeErrorResponse(req, res, err) {
 // GET
 // -------------------------------------------------------------
 
-function getBothStats(query) {
-  return playerDic.initAsync().then(function() {
-    var obj = {};
-    var promises = [
-      getBattingStats(query).then(function(stats) {
-        obj.batting = stats;
-      }),
-      getPitchingStats(query).then(function(stats) {
-        obj.pitching = stats;
-      }),
-    ];
-    return Promise.all(promises).pass(obj);
+function getMembers(req, res) {
+  var action = new Action();
+  return action.load('TeamMember').write(res).getPromise();
+}
+
+function getScoresByYear(req, res) {
+  var query = url.parse(req.url, true).query;
+
+  if (!query || !/^\d{4}$/.test(query.year))
+    return Promise.reject(new error.MissingParameterError());
+  
+  var dbQuery = {
+    date: {
+      $gte: new Date(query.year),
+      $lt: new Date(query.year - -1 + '')
+    },
+  };
+  var option = {
+    sort: {date: -1}
+  };
+  var action = new Action();
+  return action.load('GameScore', dbQuery, option).write(res).getPromise();
+}
+
+function getStatsByDate(req, res) {
+  var query = url.parse(req.url, true).query;
+  var date = query ? new Date(query.date) : null;
+
+  if (!query || !myutil.isValidDate(date))
+    return Promise.reject(new error.MissingParameterError());
+  
+  var dbQuery = {
+    date: date,
+  };
+  var option = {
+    sort: {order: 1, appearanceOrder: 1},
+  };
+  var dbQueries = {
+    'BattingStats': {query: dbQuery, option: option},
+    'PitchingStats': {query: dbQuery, option: option},
+  };
+  var format = function(data) {
+    return {batting: data.BattingStats, pitching: data.PitchingStats};
+  };
+  
+  var action = new Action();
+  return action.loadEach(dbQueries).format(format).write(res).getPromise();
+}
+
+function getStatsByPlayer(req, res) {
+  var query = url.parse(req.url, true).query;
+
+  if (!query ||
+      !/^\d{1,4}$/.test(query.playerId) ||
+      !/^\d{4}$/.test(query.year))
+    return Promise.reject(new error.MissingParameterError());
+
+  var dbQuery = {
+    date: {
+      $gte: new Date(query.year),
+      $lt: new Date(query.year - -1 + ''),
+    },
+    playerId: query.playerId,
+  };
+  var option = {
+    sort: {date: -1},
+  };
+  var dbQueries = {
+    'BattingStats': {query: dbQuery, option: option},
+    'PitchingStats': {query: dbQuery, option: option},
+  };
+  var format = function(data) {
+    var battings = formatBattingStats(data.BattingStats);
+    var pitchings = formatPitchingStats(data.PitchingStats);
+    var playerName = (battings.results[0] ||
+                      pitchings.results[0] || {}).playerName;
+    return {
+      playerId: query.playerId,
+      playerName: playerName,
+      batting: battings,
+      pitching: pitchings,
+    };
+  };
+  var action = new Action();
+  return action.loadEach(dbQueries).format(format).write(res).getPromise();
+}
+
+function getAllStats(req, res) {
+  var query = url.parse(req.url, true).query;
+  
+  if (!query || !/^\d{4}$/.test(query.year))
+    return Promise.reject(new error.MissingParameterError());
+  
+  var dbQuery = {
+    date: {
+      $gte: new Date(query.year),
+      $lt: new Date(query.year - -1 + '')
+    },
+  };
+  var option = {
+    sort: {date: -1},
+  };
+  var dbQueries = {
+    'BattingStats': {query: dbQuery, option: option},
+    'PitchingStats': {query: dbQuery, option: option},
+  };
+  var format = function(data) {
+    return {
+      batting: formatBattingStatsAll(data.BattingStats),
+      pitching: formatPitchingStatsAll(data.PitchingStats),
+    };
+  };
+
+  var action = new Action();
+  return action.loadEach(dbQueries).format(format).write(res).getPromise();
+}
+
+
+// ------------------------------------------------------------
+// Format
+// ------------------------------------------------------------
+
+function formatDataFromRequest(data) {
+  var date = new Date(data.date);
+  var ground = data.ground;
+
+  var score = data.gameScore;
+  score.date = date;
+  score.ground = ground;
+
+  var batters = filterEmptyPlayer(data.battingStats);
+  batters.forEach(function(batter) {
+    batter.date = date;
+    batter.ground = ground;
+    batter.atbats = filterEmptyAtbat(batter.atbats);
   });
+  addAppearanceOrderToBatters(batters);
+
+  var pitchers = filterEmptyPlayer(data.pitchingStats);
+  pitchers.forEach(function(pitcher) {
+    pitcher.date = date;
+    pitcher.ground = ground;
+  });
+
+  return {
+    'GameScore': score,
+    'BattingStats': batters,
+    'PitchingStats': pitchers,
+  };
 }
 
-function getBattingStats(query) {
-  var Model = db.model('BattingStats');
-  var dbQuery = Model.find('-_id -__v');
-  var promise = promisize.bind(null, dbQuery.exec, dbQuery);
-  return playerDic.initAsync()
-    .pure(promise)
-    .then(formatBattingStatsForResponse)
-    .then(function(results) {
-      var groups = groupResultsByPlayer(results);
-      var l = [];
-      for (var pid in groups) {
-        var stats = calcBattingStats(groups[pid]);
-        stats.playerId = pid;
-        stats.name = playerDic.getName(pid);
-        l.push(stats);
-      }
-      return l;
-    });
+function formatBattingStats(data) {
+  return {
+    results: data,
+    stats: {
+      total: calcBattingStats(data),
+      risp: calcBattingStatsRisp(data),
+    },
+  };
 }
 
-function getPitchingStats(query) {
-  var Model = db.model('PitchingStats');
-  var dbQuery = Model.find('-_id -__v');
-  var promise = promisize.bind(null, dbQuery.exec, dbQuery);
-  return playerDic.initAsync()
-    .pure(promise)
-    .then(formatPitchingStatsForResponse)
-    .then(function(results) {
-      var groups = groupResultsByPlayer(results);
-      var l = [];
-      for (var pid in groups) {
-        var stats = calcPitchingStats(groups[pid]);
-        stats.playerId = pid;
-        stats.name = playerDic.getName(pid);
-        l.push(stats);
-      }
-      return l;
-    });
+function formatPitchingStats(data) {
+  return {
+    results: data,
+    stats: {
+      total: calcPitchingStats(data)
+    },
+  };
+}
+
+function formatBattingStatsAll(data) {
+  var players = [];
+  var groups = groupResultsByPlayer(data);
+  for (var pid in groups) {
+    var stats = calcBattingStats(groups[pid]);
+    stats.playerId = pid;
+    stats.playerName = groups[pid][0].playerName;
+    players.push(stats);
+  }
+  return players;
+}
+
+function formatPitchingStatsAll(data) {
+  var players = [];
+  var groups = groupResultsByPlayer(data);
+  for (var pid in groups) {
+    var stats = calcPitchingStats(groups[pid]);
+    stats.playerId = pid;
+    stats.playerName = groups[pid][0].playerName;
+    players.push(stats);
+  }
+  return players;
 }
 
 function groupResultsByPlayer(results) {
@@ -189,158 +300,31 @@ function groupResultsByPlayer(results) {
   return obj;
 }
 
-function getStatsByDate(query) {
-  var date = new Date(query.date);
-  
-  if (!isValidDate(date))
-    return Promise.reject(new error.MissingParameterError());
-  
-  return playerDic.initAsync().then(function() {
-    var stats = {batting: {}, pitching: {}};
-    var promises = [
-      getRawStatsByDate('BattingStats', date)
-        .then(formatBattingStatsForResponse)
-        .then(function(result) { stats.batting.results = result; }),
-      getRawStatsByDate('PitchingStats', date)
-        .then(formatPitchingStatsForResponse)
-        .then(function(result) { stats.pitching.results = result; }),
-    ];
-    return Promise.all(promises).pass(stats);
+function filterEmptyPlayer(players) {
+  return players.filter(function(player) {
+    return player.playerName !== null;
   });
 }
 
-function getStatsByPlayerId(query) {
-  var pid = Number(query.playerId);
-
-  if (!isValidPlayerId(pid))
-    return Promise.reject(new error.MissingParameterError());
-
-  return playerDic.initAsync().then(function() {
-    var player = {
-      playerId: pid,
-      name: playerDic.getName(pid),
-      batting: {},
-      pitching: {},
-    };
-    var promises = [
-      getRawStatsByPlayerId('BattingStats', pid)
-        .then(formatBattingStatsForResponse)
-        .then(function(results) {
-          player.batting.results = results;
-          if (results.length)
-            player.batting.stats = {
-              total: calcBattingStats(results),
-              risp: calcBattingStatsRisp(results),
-            };
-        }),
-      getRawStatsByPlayerId('PitchingStats', pid)
-        .then(formatPitchingStatsForResponse)
-        .then(function(results) {
-          player.pitching.results = results;
-          if (results.length)
-            player.pitching.stats = {
-              total: calcPitchingStats(results),
-            };
-        }),
-    ];
-    return Promise.all(promises).then(function() {
-      return player;
-    });
+function filterEmptyAtbat(atbats) {
+  return atbats.filter(function(atbat) {
+    return atbat.result !== null;
   });
 }
 
-function getGameScoresByYear(query) {
-  var year = query.year || (new Date()).getFullYear().toString();
-
-  if (year.match(/^20\d\d$/) === null)
-    return Promise.reject(new error.MissingParameterError());
-  
-  var dbQuery = db.model('GameScore').find(null, '-_id -__v');
-  dbQuery.sort('-date');
-  dbQuery.gte('date', new Date(year));
-  dbQuery.lte('date', new Date(year + '-12-31'));
-  
-  return promisize(dbQuery.exec, dbQuery);
-}
-
-function getRawStatsByDate(statsKind, date) {
-  var dbQuery = db.model(statsKind).find(null, '-_id -__v')
-        .where({date: date}).sort('order appearanceOrder');
-  return promisize(dbQuery.exec, dbQuery);
-}
-
-function getRawStatsByPlayerId(statsKind, pid) {
-  var dbQuery = db.model(statsKind).find(null, '-_id -__v')
-        .where({playerId: pid}).sort('-date');
-  return promisize(dbQuery.exec, dbQuery);
-}
-
-
-// ------------------------------------------------------------
-// PUT
-// ------------------------------------------------------------
-
-function saveScore(data) {
-  return formatDataFromRequest(data).then(function(results) {
-    var score = results[0];
-    var batting = results[1];
-    var pitching = results[2];
-
-    var promises = [
-      saveGameScore(score),
-      saveStats('BattingStats', batting),
-      saveStats('PitchingStats', pitching),
-    ];
-
-    return Promise.all(promises).pass(data.date);
+function addAppearanceOrderToBatters(batters) {
+  var tempOrder = 0;
+  var tempAppear = 0;
+  batters.forEach(function(batter) {
+    if (batter.order === tempOrder) {
+      batter.appearanceOrder = ++tempAppear;
+    } else {
+      batter.appearanceOrder = 0;
+      tempOrder = batter.order;
+      tempAppear = 0;
+    }
   });
-}
-
-function saveGameScore(obj) {
-  var Model = db.model('GameScore');
-  var conds = {'date': obj.date};
-  var opts = {upsert: true, runValidators: true};
-  var query = Model.findOneAndUpdate.bind(Model, conds, obj, opts);
-
-  return promisize(query);
-}
-
-function saveStats(modelName, objs) {
-  var Model = db.model(modelName);
-  var promises = objs.map(function(obj) {
-    var conds = {'date': obj.date, 'playerId': obj.playerId};
-    var opts = {upsert: true, runValidators: true};
-    var query = Model.findOneAndUpdate.bind(Model, conds, obj, opts);
-
-    return promisize(query);
-  });
-
-  return Promise.all(promises);
-}
-
-
-// -------------------------------------------------------------
-// authorization
-// -------------------------------------------------------------
-
-function authorization(authHeader) {
-  var err = new error.AuthorizationError();
-  if (!authHeader || typeof authHeader !== 'string')
-    return Promise.reject(err);
-  return Promise.resolve(authHeader)
-    .then(parseAuthorizationHeader)
-    .then(function(auth) {
-      if (auth.scheme !== 'Token') return Promise.reject(err);
-      return AccessToken.verify(auth.param);
-    });
-}
-
-function parseAuthorizationHeader(header) {
-  var splited = header.split(' ');
-  return {
-    scheme: splited[0],
-    param: splited[1],
-  };
+  return batters;
 }
 
 
@@ -470,195 +454,6 @@ function calcPitchingStats(results) {
 
   return stats;
 }
-
-
-// ------------------------------------------------------------
-// Formatting
-// ------------------------------------------------------------
-
-function formatDataFromRequest(data) {
-  data.date = new Date(data.date);
-
-  return playerDic.initAsync().then(function() {
-    return [
-      formatGameScoreFromRequest(data),
-      formatBattingStatsFromRequest(data),
-      formatPitchingStatsFromRequest(data),
-    ];
-  });
-}
-
-function formatGameScoreFromRequest(data) {
-  var score = data.gameScore;
-  score.date = new Date(data.date);
-  score.ground = data.ground;
-
-  return score;
-}
-
-function formatBattingStatsFromRequest(data) {
-  var batters = filterEmptyPlayer(data.battingStats);
-
-  batters.forEach(function(batter) {
-    batter.atbats = filterEmptyAtbat(batter.atbats);
-  });
-  addAppearanceOrderToBatters(batters);
-  addDateAndGroundToPlayers(data, batters);
-
-  return batters.map(addIdToPlayer);
-}
-
-function formatPitchingStatsFromRequest(data) {
-  var pitchers = filterEmptyPlayer(data.pitchingStats);
-  addDateAndGroundToPlayers(data, pitchers);
-
-  return pitchers.map(addIdToPlayer);
-}
-
-function filterEmptyPlayer(players) {
-  return players.filter(function(player) {
-    return !!player.name;
-  });
-}
-
-function filterEmptyAtbat(atbats) {
-  return atbats.filter(function(atbat) {
-    return !!atbat.result;
-  });
-}
-
-function addAppearanceOrderToBatters(batters) {
-  var tempOrder = 0;
-  var tempAppear = 0;
-  batters.forEach(function(batter) {
-    if (batter.order === tempOrder) {
-      batter.appearanceOrder = ++tempAppear;
-    } else {
-      batter.appearanceOrder = 0;
-      tempOrder = batter.order;
-      tempAppear = 0;
-    }
-  });
-  return batters;
-}
-
-function addIdToPlayer(player) {
-  player.playerId = playerDic.getId(player.name);
-  return player;
-}
-
-function addDateAndGroundToPlayers(obj, players) {
-  var date = obj.date;
-  var ground = obj.ground;
-  players.forEach(function(player) {
-    player.date = date;
-    player.ground = ground;
-  });
-}
-
-function formatBattingStatsForResponse(docs) {
-  var players = [];
-  docs.forEach(function(doc) {
-    var player = doc.toObject();
-    player.name = playerDic.getName(player.playerId);
-    player.atbats = player.atbats.filter(function(atbat) {
-      return !!atbat.result;
-    });
-    players.push(player);
-  });
-
-  return players;
-}
-
-function formatPitchingStatsForResponse(docs) {
-  var players = [];
-  docs.forEach(function(doc) {
-    var player = doc.toObject();
-    player.name = playerDic.getName(player.playerId);
-    players.push(player);
-  });
-
-  return players;
-}
-
-
-// ------------------------------------------------------------
-// Utils
-// ------------------------------------------------------------
-
-function getRequestBodyAsync(req) {
-  return new Promise(function(resolve, reject) {
-    req.pipe(bl(function(err, data) {
-      err ? reject(err) : resolve(data.toString());
-    }));
-  });
-}
-
-function isValidDate(date) {
-  return date && date instanceof Date && date.toString() !== 'Invalid Date';
-}
-
-function isValidPlayerId(pid) {
-  return pid && typeof pid === 'number' && pid >= 0 &&
-    pid.toString() !== 'NaN' && pid.toString() !== 'Infinity';
-}
-
-var playerDic = (function() {
-  var _dic = {};
-  var status = 0;
-
-  return {
-    status: status,
-    initAsync: init,
-    getName: getName,
-    getId: getId,
-  };
-
-  function init() {
-    if (status === 1) {
-      return Promise.resolve();
-    } else {
-      var dbQuery = db.model('TeamMember').find(null, '-_id -__v');
-      return promisize(dbQuery.exec, dbQuery).then(function(docs) {
-        var obj = {};
-        docs.forEach(function(doc) {
-          obj[doc.playerId] = doc.playerName;
-        });
-        _dic = obj;
-        status = 1;
-      });
-    }
-  }
-
-  function getName(playerId) {
-    if (status !== 1) console.warn('playerDic: not initialized');
-    return _dic[playerId];
-  }
-
-  function getId(playerName) {
-    if (status !== 1) console.warn('playerDic: not initialized');
-    for (var k in _dic) {
-      if (_dic[k] === playerName) return k;
-    }
-    return createNewId(playerName);
-  }
-
-  function createNewId(playerName) {
-    var newId = Math.max.apply(null, Object.keys(_dic).concat(999)) + 1;
-    _dic[newId] = playerName;
-
-    var Model = db.model('TeamMember');
-    var player = new Model({
-      playerName: playerName,
-      playerId: newId,
-    });
-    promisize(player.save, player).catch(function(err) {
-      console.error(err);
-    });
-    
-    return newId;
-  }
-}());
 
 
 //==============================================================

@@ -21,8 +21,8 @@ var promisize = require('./util').promisize;
 // Action
 // -------------------------------------------------------------
 
-var Action = function() {
-  this._data = null;
+var Action = function(data) {
+  this._data = data || null;
   this._promise = Promise.resolve();
 };
 
@@ -71,8 +71,8 @@ Action.prototype.save = function(modelName) {
   var _this = this;
   this._promise = this._promise.then(function() {
     var Model = db.model(modelName);
-    var doc = new Model(_this._data);
-    return promisize(doc.save, doc);
+    var data = _this._data;
+    return buildSavePromise(Model, data);
   });
   return this;
 };
@@ -81,18 +81,15 @@ Action.prototype.saveEach = function(modelNames) {
   var _this = this;
   this._promise = this._promise.then(function() {
     var promises = [];
-    var push = function(Model, data) {
-      var doc = new Model(data);
-      var promise = promisize(doc.save, doc);
-      promises.push(promise);
-    };
     modelNames.forEach(function(modelName) {
       var Model = db.model(modelName);
       var data = _this._data[modelName];
       if (data instanceof Array)
-        data.forEach(push.bind(null, Model));
+        data.forEach(function(d) {
+          promises.push(buildSavePromise(Model, d));
+        });
       else
-        push(Model, data);
+        promises.push(buildSavePromise(Model, data));
     });
     return Promise.all(promises);
   });
@@ -145,6 +142,14 @@ function getRequestBody(req) {
       err ? reject(err) : resolve(data.toString());
     }));
   });
+}
+
+function buildSavePromise(Model, data) {
+  var conds = {date: data.date};
+  if (data.playerId) conds.playerId = data.playerId;
+  var opts = {upsert: true, runValidators: true};
+  var query = Model.findOneAndUpdate.bind(Model, conds, data, opts);
+  return promisize(query);
 }
 
 

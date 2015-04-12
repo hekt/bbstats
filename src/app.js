@@ -80,7 +80,11 @@ function writeErrorResponse(req, res, err) {
 
 function saveScore(req, res) {
   var action = new Action();
-  var models = ['GameScore', 'BattingStats', 'PitchingStats'];
+  var models = [
+    {name: 'GameScore', uniqueKeys: ['date']},
+    {name: 'BattingStats', uniqueKeys: ['date', 'playerId']},
+    {name: 'PitchingStats', uniqueKeys: ['date', 'playerId']},
+  ];
   return action.read(req).format(formatDataFromRequest)
     .saveEach(models).getPromise().then(function(data) {
       var u = url.parse(req.url);
@@ -133,10 +137,10 @@ function getStatsByDate(req, res) {
   var option = {
     sort: {order: 1, appearanceOrder: 1},
   };
-  var dbQueries = {
-    'BattingStats': {query: dbQuery, option: option},
-    'PitchingStats': {query: dbQuery, option: option},
-  };
+  var dbQueries = [
+    {name: 'BattingStats', query: dbQuery, option: option},
+    {name: 'PitchingStats', query: dbQuery, option: option},
+  ];
   var format = function(data) {
     return {batting: data.BattingStats, pitching: data.PitchingStats};
   };
@@ -163,10 +167,10 @@ function getStatsByPlayer(req, res) {
   var option = {
     sort: {date: -1},
   };
-  var dbQueries = {
-    'BattingStats': {query: dbQuery, option: option},
-    'PitchingStats': {query: dbQuery, option: option},
-  };
+  var dbQueries = [
+    {name: 'BattingStats', query: dbQuery, option: option},
+    {name: 'PitchingStats', query: dbQuery, option: option},
+  ];
   var format = function(data) {
     var battings = formatBattingStats(data.BattingStats);
     var pitchings = formatPitchingStats(data.PitchingStats);
@@ -198,10 +202,10 @@ function getAllStats(req, res) {
   var option = {
     sort: {date: -1},
   };
-  var dbQueries = {
-    'BattingStats': {query: dbQuery, option: option},
-    'PitchingStats': {query: dbQuery, option: option},
-  };
+  var dbQueries = [
+    {name: 'BattingStats', query: dbQuery, option: option},
+    {name: 'PitchingStats', query: dbQuery, option: option},
+  ];
   var format = function(data) {
     return {
       batting: formatBattingStatsAll(data.BattingStats),

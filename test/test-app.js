@@ -80,9 +80,9 @@ describe('app.api', function() {
       return CommonKey.register(user, key).then(api).then(function() {
         res.statusCode.should.equal(201);
         var promises = [
-          checkGameScoreKeysDB(),
-          checkBattingStatsKeysDB(),
-          checkPitchingStatsKeysDB(),
+          checkGameScoreKeysDB(1),
+          checkBattingStatsKeysDB(data.battingStats.length),
+          checkPitchingStatsKeysDB(data.pitchingStats.length),
         ];
         return Promise.all(promises);
       });
@@ -257,12 +257,12 @@ function checkPitchingStatsAllKeys(data) {
   data.should.have.keys(keys);
 }
 
-function checkGameScoreKeysDB() {
+function checkGameScoreKeysDB(len) {
   var keys = ['date', 'ground', 'result', 'awayTeam', 'homeTeam'];
   var teamKeys = ['teamName', 'totalRuns', 'totalErrors', 'totalHits', 'runs'];
   var dbQuery = db.model('GameScore').find(null, '-_id -__v');
   return promisize(dbQuery.exec, dbQuery).then(function(docs) {
-    docs.length.should.not.equal(0);
+    docs.length.should.equal(len);
     docs.forEach(function(doc) {
       var obj = doc.toObject();
       obj.should.have.keys(keys);
@@ -271,7 +271,7 @@ function checkGameScoreKeysDB() {
     });
   });
 }
-function checkBattingStatsKeysDB() {
+function checkBattingStatsKeysDB(len) {
   var keys = ['playerId', 'playerName', 'order', 'appearanceOrder',
               'positions', 'date', 'ground', 'run', 'sb', 'error', 'atbats'];
   var atbatKeys = ['inning', 'rbi', 'runners', 'outCount', 'result',
@@ -279,7 +279,7 @@ function checkBattingStatsKeysDB() {
   var runnersKeys = ['first', 'second', 'third'];
   var dbQuery = db.model('BattingStats').find(null, '-_id -__v');
   return promisize(dbQuery.exec, dbQuery).then(function(docs) {
-    docs.length.should.not.equal(0);
+    docs.length.should.equal(len);
     docs.forEach(function(doc) {
       var obj = doc.toObject();
       obj.should.have.keys(keys);
@@ -290,12 +290,12 @@ function checkBattingStatsKeysDB() {
     });
   });
 }
-function checkPitchingStatsKeysDB() {
+function checkPitchingStatsKeysDB(len) {
   var keys = ['playerId', 'playerName', 'date', 'ground', 'out', 'bf', 'run',
               'erun', 'so', 'bb', 'h', 'hr', 'error', 'result'];
   var dbQuery = db.model('PitchingStats').find(null, '-_id -__v');
   return promisize(dbQuery.exec, dbQuery).then(function(docs) {
-    docs.length.should.not.equal(0);
+    docs.length.should.equal(len);
     docs.forEach(function(doc) {
       var obj = doc.toObject();
       obj.should.have.keys(keys);

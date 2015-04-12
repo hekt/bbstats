@@ -40,7 +40,6 @@ Action.prototype.load = function(modelName, query, option) {
       _this._data = docs.map(function(doc) {
         return doc.toObject();
       });
-      return _this._data;
     });
   });
   return this;
@@ -51,45 +50,45 @@ Action.prototype.loadEach = function(queries) {
   this._promise = this._promise.then(function() {
     _this._data = {};
     var promises = [];
-    for (var name in queries) {
-      var q = queries[name];
-      var dbQuery = db.model(name).find(q.query, '-_id -__v', q.option);
-      var func = function(name, docs) {
-        _this._data[name] = docs.map(function(doc) {
+    queries.forEach(function(q) {
+      var dbQuery = db.model(q.name).find(q.query, '-_id -__v', q.option);
+      var promise = promisize(dbQuery.exec, dbQuery).then(function(docs) {
+        _this._data[q.name] = docs.map(function(doc) {
           return doc.toObject();
         });
-      }.bind(null, name);
-      var promise = promisize(dbQuery.exec, dbQuery).then(func);
+      });
       promises.push(promise);
-    }
+    });
     return Promise.all(promises);
   });
   return this;
 };
 
-Action.prototype.save = function(modelName) {
+Action.prototype.save = function(modelName, uniqueKeys) {
   var _this = this;
   this._promise = this._promise.then(function() {
     var Model = db.model(modelName);
     var data = _this._data;
-    return buildSavePromise(Model, data);
+    return buildSavePromise(Model, data, uniqueKeys);
   });
   return this;
 };
 
-Action.prototype.saveEach = function(modelNames) {
+Action.prototype.saveEach = function(models) {
   var _this = this;
   this._promise = this._promise.then(function() {
     var promises = [];
-    modelNames.forEach(function(modelName) {
-      var Model = db.model(modelName);
-      var data = _this._data[modelName];
+
+    models.forEach(function(model) {
+      var Model = db.model(model.name);
+      var data = _this._data[model.name];
+      var keys = model.uniqueKeys;
       if (data instanceof Array)
         data.forEach(function(d) {
-          promises.push(buildSavePromise(Model, d));
+          promises.push(buildSavePromise(Model, d, keys));
         });
       else
-        promises.push(buildSavePromise(Model, data));
+        promises.push(buildSavePromise(Model, data, keys));
     });
     return Promise.all(promises);
   });
@@ -100,7 +99,6 @@ Action.prototype.format = function(formatFunc) {
   var _this = this;
   this._promise = this._promise.then(function() {
     _this._data = formatFunc(_this._data);
-    return Promise.resolve(_this._data);
   });
   return this;
 };
@@ -112,7 +110,6 @@ Action.prototype.read = function(req) {
     var decrypt = CommonKey.decrypt.bind(null, user);
     return getRequestBody(req).then(decrypt).then(function(data) {
       _this._data = data;
-      return _this._data;
     });
   });
   return this;
@@ -126,7 +123,6 @@ Action.prototype.write = function(res) {
     var content = JSON.stringify(_this._data) + '\n';
     res.writeHead(status, header);
     res.end(content);
-    return Promise.resolve();
   });
   return this;
 };
@@ -144,12 +140,19 @@ function getRequestBody(req) {
   });
 }
 
-function buildSavePromise(Model, data) {
-  var conds = {date: data.date};
-  if (data.playerId) conds.playerId = data.playerId;
-  var opts = {upsert: true, runValidators: true};
-  var query = Model.findOneAndUpdate.bind(Model, conds, data, opts);
-  return promisize(query);
+function buildSavePromise(Model, data, uniqueKeys) {
+  if (!uniqueKeys || !uniqueKeys.length > 0) {
+    var doc = new Model(data);
+    return promisize(doc.save, doc);
+  } else {
+    var conds = {};
+    uniqueKeys.forEach(function(key) {
+      conds[key] = data[key];
+    });
+    var opts = {upsert: true, runValidators: true};
+    var query = Model.findOneAndUpdate.bind(Model, conds, data, opts);
+    return promisize(query);
+  }
 }
 
 

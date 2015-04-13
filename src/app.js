@@ -5,25 +5,22 @@
 // Modules
 // =============================================================
 
-var url = require('url');
-var bl = require('bl');
-var strftime = require('strftime');
-
-// polyfill
-var Promise = require('es6-promise').Promise;
+let url = require('url');
+let bl = require('bl');
+let strftime = require('strftime');
 
 // app module
-var error = require('./error.js');
-var myutil = require('./util.js');
-var Action = require('./action').Action;
-var CommonKey = require('./auth').CommonKey;
+let error = require('./error.js');
+let myutil = require('./util.js');
+let Action = require('./action').Action;
+let CommonKey = require('./auth').CommonKey;
 
 
 // =============================================================
 // Header
 // =============================================================
 
-var app = {};
+let app = {};
 app.api = api;
 
 
@@ -31,7 +28,7 @@ app.api = api;
 // Implementation
 // =============================================================
 
-var apiActionSet = {
+let apiActionSet = {
   GET: {
     members: getMembers,
     score: getScoresByYear,
@@ -47,10 +44,10 @@ var apiActionSet = {
 };
 
 function api(req, res) {
-  var urlObj = url.parse(req.url, true);
-  var target = urlObj.pathname.replace(/\/api\/([a-z_]+\/?[a-z_]*)/, '$1');
-  var action = apiActionSet[req.method][target];
-  var errorHandler = writeErrorResponse.bind(null, req, res);
+  let urlObj = url.parse(req.url, true);
+  let target = urlObj.pathname.replace(/\/api\/([a-z_]+\/?[a-z_]*)/, '$1');
+  let action = apiActionSet[req.method][target];
+  let errorHandler = writeErrorResponse.bind(null, req, res);
   
   if (!action)
     return Promise.reject(new error.NotFoundError()).catch(errorHandler);
@@ -59,10 +56,10 @@ function api(req, res) {
 }
 
 function writeErrorResponse(req, res, err) {
-  var data = error.toHttpData(err);
-  var status = data.statusCode;
-  var header = {'content-type': 'text/plain; charset=utf-8'};
-  var content = data.message + '\n';
+  let data = error.toHttpData(err);
+  let status = data.statusCode;
+  let header = {'content-type': 'text/plain; charset=utf-8'};
+  let content = data.message + '\n';
 
   res.writeHead(status, header);
   res.end(content);
@@ -79,16 +76,16 @@ function writeErrorResponse(req, res, err) {
 // ------------------------------------------------------------
 
 function saveScore(req, res) {
-  var action = new Action();
-  var models = [
-    {name: 'GameScore', uniqueKeys: ['date']},
-    {name: 'BattingStats', uniqueKeys: ['date', 'playerId']},
-    {name: 'PitchingStats', uniqueKeys: ['date', 'playerId']},
-  ];
+  let action = new Action();
+  let models = new Map([
+    ['GameScore',     ['date']],
+    ['BattingStats',  ['date', 'playerId']],
+    ['PitchingStats', ['date', 'playerId']],
+  ]);
   return action.read(req).format(formatDataFromRequest)
-    .saveEach(models).getPromise().then(function(data) {
-      var u = url.parse(req.url);
-      var loc = 'http://' + u.host + '/score/' +
+    .saveEach(models).getPromise().then(data => {
+      let u = url.parse(req.url);
+      let loc = 'http://' + u.host + '/score/' +
             strftime('%F', data.GameScore.date);
       res.writeHead(201, {Location: loc});
       res.end();
@@ -101,80 +98,80 @@ function saveScore(req, res) {
 // -------------------------------------------------------------
 
 function getMembers(req, res) {
-  var action = new Action();
+  let action = new Action();
   return action.load('TeamMember').write(res).getPromise();
 }
 
 function getScoresByYear(req, res) {
-  var query = url.parse(req.url, true).query;
+  let query = url.parse(req.url, true).query;
 
   if (!query || !/^\d{4}$/.test(query.year))
     return Promise.reject(new error.MissingParameterError());
   
-  var dbQuery = {
+  let dbQuery = {
     date: {
       $gte: new Date(query.year),
       $lt: new Date(query.year - -1 + '')
     },
   };
-  var option = {
+  let option = {
     sort: {date: -1}
   };
-  var action = new Action();
+  let action = new Action();
   return action.load('GameScore', dbQuery, option).write(res).getPromise();
 }
 
 function getStatsByDate(req, res) {
-  var query = url.parse(req.url, true).query;
-  var date = query ? new Date(query.date) : null;
+  let query = url.parse(req.url, true).query;
+  let date = query ? new Date(query.date) : null;
 
   if (!query || !myutil.isValidDate(date))
     return Promise.reject(new error.MissingParameterError());
   
-  var dbQuery = {
+  let dbQuery = {
     date: date,
   };
-  var option = {
+  let option = {
     sort: {order: 1, appearanceOrder: 1},
   };
-  var dbQueries = [
-    {name: 'BattingStats', query: dbQuery, option: option},
-    {name: 'PitchingStats', query: dbQuery, option: option},
-  ];
-  var format = function(data) {
+  let dbQueries = new Map([
+    ['BattingStats',  {query: dbQuery, option: option}],
+    ['PitchingStats', {query: dbQuery, option: option}],
+  ]);
+  let format = data => {
     return {batting: data.BattingStats, pitching: data.PitchingStats};
   };
   
-  var action = new Action();
+  let action = new Action();
   return action.loadEach(dbQueries).format(format).write(res).getPromise();
 }
 
 function getStatsByPlayer(req, res) {
-  var query = url.parse(req.url, true).query;
+  let query = url.parse(req.url, true).query;
 
   if (!query ||
       !/^\d{1,4}$/.test(query.playerId) ||
       !/^\d{4}$/.test(query.year))
     return Promise.reject(new error.MissingParameterError());
 
-  var dbQuery = {
+  let dbQuery = {
     date: {
       $gte: new Date(query.year),
       $lt: new Date(query.year - -1 + ''),
     },
     playerId: query.playerId,
   };
-  var option = {
+  let option = {
     sort: {date: -1},
   };
-  var dbQueries = [
-    {name: 'BattingStats', query: dbQuery, option: option},
-    {name: 'PitchingStats', query: dbQuery, option: option},
-  ];
-  var format = function(data) {
-    var battings = formatBattingStats(data.BattingStats);
-    var pitchings = formatPitchingStats(data.PitchingStats);
-    var playerName = (battings.results[0] ||
+  let dbQueries = new Map([
+    ['BattingStats',  {query: dbQuery, option: option}],
+    ['PitchingStats', {query: dbQuery, option: option}],
+  ]);
+  let format = data => {
+    let battings = formatBattingStats(data.BattingStats);
+    let pitchings = formatPitchingStats(data.PitchingStats);
+    let playerName = (battings.results[0] ||
                       pitchings.results[0] || {}).playerName;
     return {
       playerId: query.playerId,
@@ -183,37 +180,37 @@ function getStatsByPlayer(req, res) {
       pitching: pitchings,
     };
   };
-  var action = new Action();
+  let action = new Action();
   return action.loadEach(dbQueries).format(format).write(res).getPromise();
 }
 
 function getAllStats(req, res) {
-  var query = url.parse(req.url, true).query;
+  let query = url.parse(req.url, true).query;
   
   if (!query || !/^\d{4}$/.test(query.year))
     return Promise.reject(new error.MissingParameterError());
   
-  var dbQuery = {
+  let dbQuery = {
     date: {
       $gte: new Date(query.year),
       $lt: new Date(query.year - -1 + '')
     },
   };
-  var option = {
+  let option = {
     sort: {date: -1},
   };
-  var dbQueries = [
-    {name: 'BattingStats', query: dbQuery, option: option},
-    {name: 'PitchingStats', query: dbQuery, option: option},
-  ];
-  var format = function(data) {
+  let dbQueries = new Map([
+    ['BattingStats',  {query: dbQuery, option: option}],
+    ['PitchingStats', {query: dbQuery, option: option}],
+  ]);
+  let format = data => {
     return {
       batting: formatBattingStatsAll(data.BattingStats),
       pitching: formatPitchingStatsAll(data.PitchingStats),
     };
   };
 
-  var action = new Action();
+  let action = new Action();
   return action.loadEach(dbQueries).format(format).write(res).getPromise();
 }
 
@@ -223,23 +220,23 @@ function getAllStats(req, res) {
 // ------------------------------------------------------------
 
 function formatDataFromRequest(data) {
-  var date = new Date(data.date);
-  var ground = data.ground;
+  let date = new Date(data.date);
+  let ground = data.ground;
 
-  var score = data.gameScore;
+  let score = data.gameScore;
   score.date = date;
   score.ground = ground;
 
-  var batters = filterEmptyPlayer(data.battingStats);
-  batters.forEach(function(batter) {
+  let batters = filterEmptyPlayer(data.battingStats);
+  batters.forEach(batter => {
     batter.date = date;
     batter.ground = ground;
     batter.atbats = filterEmptyAtbat(batter.atbats);
   });
   addAppearanceOrderToBatters(batters);
 
-  var pitchers = filterEmptyPlayer(data.pitchingStats);
-  pitchers.forEach(function(pitcher) {
+  let pitchers = filterEmptyPlayer(data.pitchingStats);
+  pitchers.forEach(pitcher => {
     pitcher.date = date;
     pitcher.ground = ground;
   });
@@ -271,10 +268,10 @@ function formatPitchingStats(data) {
 }
 
 function formatBattingStatsAll(data) {
-  var players = [];
-  var groups = groupResultsByPlayer(data);
-  for (var pid in groups) {
-    var stats = calcBattingStats(groups[pid]);
+  let players = [];
+  let groups = groupResultsByPlayer(data);
+  for (let pid in groups) {
+    let stats = calcBattingStats(groups[pid]);
     stats.playerId = pid;
     stats.playerName = groups[pid][0].playerName;
     players.push(stats);
@@ -283,10 +280,10 @@ function formatBattingStatsAll(data) {
 }
 
 function formatPitchingStatsAll(data) {
-  var players = [];
-  var groups = groupResultsByPlayer(data);
-  for (var pid in groups) {
-    var stats = calcPitchingStats(groups[pid]);
+  let players = [];
+  let groups = groupResultsByPlayer(data);
+  for (let pid in groups) {
+    let stats = calcPitchingStats(groups[pid]);
     stats.playerId = pid;
     stats.playerName = groups[pid][0].playerName;
     players.push(stats);
@@ -295,9 +292,9 @@ function formatPitchingStatsAll(data) {
 }
 
 function groupResultsByPlayer(results) {
-  var obj = {};
-  results.forEach(function(result) {
-    var pid = result.playerId;
+  let obj = {};
+  results.forEach(result => {
+    let pid = result.playerId;
     obj[pid] = obj[pid] || [];
     obj[pid].push(result);
   });
@@ -305,21 +302,17 @@ function groupResultsByPlayer(results) {
 }
 
 function filterEmptyPlayer(players) {
-  return players.filter(function(player) {
-    return player.playerName !== null;
-  });
+  return players.filter(player => player.playerName !== null);
 }
 
 function filterEmptyAtbat(atbats) {
-  return atbats.filter(function(atbat) {
-    return atbat.result !== null;
-  });
+  return atbats.filter(atbat => atbat.result !== null);
 }
 
 function addAppearanceOrderToBatters(batters) {
-  var tempOrder = 0;
-  var tempAppear = 0;
-  batters.forEach(function(batter) {
+  let tempOrder = 0;
+  let tempAppear = 0;
+  batters.forEach(batter => {
     if (batter.order === tempOrder) {
       batter.appearanceOrder = ++tempAppear;
     } else {
@@ -337,37 +330,33 @@ function addAppearanceOrderToBatters(batters) {
 // ------------------------------------------------------------
 
 function calcBattingStats(results) {
-  var atbats = [];
-  results.forEach(function(result) {
+  let atbats = [];
+  results.forEach(result => {
     atbats = atbats.concat(result.atbats);
   });
 
-  var stats = calcBattingStatsInner(atbats);
+  let stats = calcBattingStatsInner(atbats);
   stats.g = results.length;
-  ['run', 'sb', 'error'].forEach(function(stat) {
-    stats[stat] = myutil.sum(results.map(function(result) {
-      return Number(result[stat]) || 0;
-    }));
+  ['run', 'sb', 'error'].forEach(stat => {
+    stats[stat] = myutil.sum(results.map(result => Number(result[stat]) || 0));
   });
   
   return stats;
 }
 
 function calcBattingStatsRisp(results) {
-  var atbats = [];
-  results.forEach(function(result) {
+  let atbats = [];
+  results.forEach(result => {
     atbats = atbats.concat(result.atbats);
   });
-  atbats = atbats.filter(function(atbat) {
-    return atbat.runners.scond || atbat.runners.third;
-  });
+  atbats = atbats.filter(atbat => atbat.runners.second || atbat.runners.third);
 
   return calcBattingStatsInner(atbats);
 }
 
 function calcBattingStatsInner(atbats) {
-  var counts = getResultCounts(atbats);
-  var stats = {
+  let counts = getResultCounts(atbats);
+  let stats = {
     ab: counts.ab,
     h: counts.h,
     hr: counts.hr,
@@ -376,11 +365,9 @@ function calcBattingStatsInner(atbats) {
     hbp: counts.hbp,
   };
 
-  stats.rbi = myutil.sum(atbats.map(function(atbat) {
-    return Number(atbat.rbi) || 0;
-  }));
+  stats.rbi = myutil.sum(atbats.map(atbat => Number(atbat.rbi) || 0));
   
-  var c = counts; // i want to use with statement in strict mode...
+  let c = counts; // i want to use with statement in strict mode...
   stats.avg = c.h / c.ab;
   stats.obp = (c.h + c.bb + c.hbp) / (c.ab + c.bb + c.hbp + c.sf);
   stats.slg = c.tb / c.ab;
@@ -390,19 +377,19 @@ function calcBattingStatsInner(atbats) {
 }
 
 function getResultCounts(atbats) {
-  var kinds = atbats.map(function(atbat) {
-    return atbat.resultKind;
-  });
-  var knownKinds = [
+  let kinds = atbats.map(atbat => atbat.resultKind);
+  let knownKinds = [
     'h', 'dbl', 'tpl', 'hr', 'bb', 'ibb', 'hbp', 'sf', 'sh',
     'go', 'fo', 'dp', 'so', 'uts', 'e', 'she',
   ];
-  var noAtbatKinds = ['bb', 'ibb', 'hbp', 'sf', 'sh', 'she'];
+  let noAtbatKinds = ['bb', 'ibb', 'hbp', 'sf', 'sh', 'she'];
   
-  var r = {pa: 0, ab: 0};
-  knownKinds.forEach(function(k) { r[k] = 0; });
+  let r = {pa: 0, ab: 0};
+  knownKinds.forEach(k => {
+    r[k] = 0;
+  });
   
-  kinds.forEach(function(kind) {
+  kinds.forEach(kind => {
     r.pa++;
     if (noAtbatKinds.indexOf(kind) < 0) r.ab++;
     if (r[kind] !== undefined) {
@@ -425,7 +412,7 @@ function getResultCounts(atbats) {
 }
 
 function calcPitchingStats(results) {
-  var stats = {
+  let stats = {
     g: results.length,
     win: 0,
     lose: 0,
@@ -433,21 +420,19 @@ function calcPitchingStats(results) {
     save: 0,
   };
 
-  results.forEach(function(result) {
-    var r = result.result;
+  results.forEach(result => {
+    let r = result.result;
     if (r) stats[r]++;
   });
 
-  var statKinds = [
+  let statKinds = [
     'out', 'bf', 'run', 'erun', 'so', 'bb', 'h', 'hit', 'hr', 'error'
   ];
-  statKinds.forEach(function(stat) {
-    stats[stat] = myutil.sum(results.map(function(result) {
-      return Number(result[stat]) || 0;
-    }));
+  statKinds.forEach(stat => {
+    stats[stat] = myutil.sum(results.map(result => Number(result[stat]) || 0));
   });
 
-  var s = stats;
+  let s = stats;
   stats.h = stats.h | stats.hit;
   stats.bf = stats.bf || s.out + s.bb + s.h + s.error;
   stats.era = (s.erun * 3 * 9) / s.out;

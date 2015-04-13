@@ -4,12 +4,12 @@
 // Modules
 // =============================================================
 
-var http = require('http');
+let http = require('http');
 
 // app modules
-var app = require('./app');
-var db = require('./db');
-var config = require('./config');
+let app = require('./app');
+let db = require('./db');
+let config = require('./config');
 
 
 // =============================================================
@@ -18,7 +18,7 @@ var config = require('./config');
 
 if (!db.connection.readyState) db.connect(config.dbUri);
 
-var server = http.createServer(function(res, req) {
+let server = http.createServer((res, req) => {
   app.api(res, req);
 });
 server.listen(config.port);

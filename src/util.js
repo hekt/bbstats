@@ -4,11 +4,8 @@
 // Modules
 // ------------------------------------------------------------
 
-var crypto = require('crypto');
-var base64url = require('base64url');
-
-// polyfills
-var Promise = require('es6-promise').Promise;
+let crypto = require('crypto');
+let base64url = require('base64url');
 
 
 // ------------------------------------------------------------
@@ -28,11 +25,9 @@ var Promise = require('es6-promise').Promise;
  do it twice
  */
 Promise.prototype.pierce = function(func) {
-  return this.then(function(val) {
+  return this.then(val => {
     if (!func || typeof func !== 'function') return val;
-    return Promise.resolve(func(val)).then(function() {
-      return val;
-    });
+    return Promise.resolve(func(val)).then(() => val);
   });
 };
 
@@ -43,9 +38,7 @@ Promise.prototype.pierce = function(func) {
  undefined
  */
 Promise.prototype.pass = function(arg) {
-  return this.then(function() {
-    return arg;
-  });
+  return this.then(() => arg);
 };
 
 /*
@@ -53,9 +46,7 @@ Promise.prototype.pass = function(arg) {
  undefined
  */
 Promise.prototype.pure = function(func) {
-  return this.then(function() {
-    return func();
-  });
+  return this.then(() => func());
 };
 
 
@@ -63,12 +54,12 @@ Promise.prototype.pure = function(func) {
 // myutil
 // ------------------------------------------------------------
 
-var myutil = {};
+let myutil = {};
 
 myutil.promisize = function(func, thisArg, opt_args) {
-  var args = opt_args || [];
-  return new Promise(function(resolve, reject) {
-    args.push(function(err, val) {
+  let args = opt_args || [];
+  return new Promise((resolve, reject) => {
+    args.push((err, val) => {
       err ? reject(err) : resolve(val);
     });
     func.apply(thisArg, args);
@@ -76,15 +67,13 @@ myutil.promisize = function(func, thisArg, opt_args) {
 };
 
 myutil.randomString = function(size) {
-  var randoms = myutil.promisize(crypto.randomBytes.bind(crypto, size));
+  let randoms = myutil.promisize(crypto.randomBytes.bind(crypto, size));
   return randoms.then(base64url);
 };
 
 myutil.sum = function(ns) {
   if (ns.length === 0) return 0;
-  return ns.reduce(function(x, y) {
-    return x + y;
-  });
+  return ns.reduce((x, y) => x = y);
 };
 
 myutil.isValidDate = function(date) {

@@ -4,11 +4,11 @@
 // Modules
 // ------------------------------------------------------------
 
-var Promise = require('es6-promise').Promise;
+let Promise = require('es6-promise').Promise;
 
-var db = require('./db');
-var config = require('./config');
-var promisize = require('./util').promisize;
+let db = require('./db');
+let config = require('./config');
+let promisize = require('./util').promisize;
 
 
 // ------------------------------------------------------------
@@ -24,13 +24,13 @@ if (db.connection.readyState === 0) {
 // tool
 // ------------------------------------------------------------
 
-var tool = {};
+let tool = {};
 
 tool.registerMembers = function(members) {
-  var Model = db.model('TeamMember');
-  var promises = [];
-  for (var pid in members) {
-    var member = new Model({
+  let Model = db.model('TeamMember');
+  let promises = [];
+  for (let pid in members) {
+    let member = new Model({
       playerId: pid,
       playerName: members[pid],
     });

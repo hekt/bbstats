@@ -5,57 +5,53 @@
 // Modules
 // =============================================================
 
-var util = require('util');
-var bl = require('bl');
-
-// polyfill
-var Promise = require('es6-promise').Promise;
+let bl = require('bl');
 
 // my modules
-var db = require('./db');
-var CommonKey = require('./auth').CommonKey;
-var promisize = require('./util').promisize;
+let db = require('./db');
+let CommonKey = require('./auth').CommonKey;
+let promisize = require('./util').promisize;
 
 
 // -------------------------------------------------------------
 // Action
 // -------------------------------------------------------------
 
-var Action = function(data) {
-  this._data = data || null;
-  this._promise = Promise.resolve();
+let _data = Symbol('data');
+let _promise = Symbol('promise');
+
+let Action = function(data) {
+  this[_data] = data || null;
+  this[_promise] = Promise.resolve();
 };
 
 Action.prototype.getPromise = function() {
-  return this._promise.then(function() {
-    return this._data;
-  }.bind(this));
+  let that = this;
+  return this[_promise].then(function() {
+    return that[_data];
+  });
 };
 
 Action.prototype.load = function(modelName, query, option) {
-  var _this = this;
-  this._promise = this._promise.then(function() {
-    var dbQuery = db.model(modelName).find(query, '-_id -__v', option);
-    return promisize(dbQuery.exec, dbQuery).then(function(docs) {
-      _this._data = docs.map(function(doc) {
-        return doc.toObject();
-      });
+  let that = this;
+  this[_promise] = this[_promise].then(() => {
+    let dbQuery = db.model(modelName).find(query, '-_id -__v', option);
+    return promisize(dbQuery.exec, dbQuery).then(docs => {
+      that[_data] = docs.map(doc => doc.toObject());
     });
   });
   return this;
 };
 
-Action.prototype.loadEach = function(queries) {
-  var _this = this;
-  this._promise = this._promise.then(function() {
-    _this._data = {};
-    var promises = [];
-    queries.forEach(function(q) {
-      var dbQuery = db.model(q.name).find(q.query, '-_id -__v', q.option);
-      var promise = promisize(dbQuery.exec, dbQuery).then(function(docs) {
-        _this._data[q.name] = docs.map(function(doc) {
-          return doc.toObject();
-        });
+Action.prototype.loadEach = function(queryMap) {
+  let that = this;
+  this[_promise] = this[_promise].then(function() {
+    that[_data] = {};
+    let promises = [];
+    queryMap.forEach((q, name) => {
+      let dbQuery = db.model(name).find(q.query, '-_id -__v', q.option);
+      let promise = promisize(dbQuery.exec, dbQuery).then(docs => {
+        that[_data][name] = docs.map(doc => doc.toObject());
       });
       promises.push(promise);
     });
@@ -65,26 +61,24 @@ Action.prototype.loadEach = function(queries) {
 };
 
 Action.prototype.save = function(modelName, uniqueKeys) {
-  var _this = this;
-  this._promise = this._promise.then(function() {
-    var Model = db.model(modelName);
-    var data = _this._data;
+  let that = this;
+  this[_promise] = this[_promise].then(() => {
+    let Model = db.model(modelName);
+    let data = that[_data];
     return buildSavePromise(Model, data, uniqueKeys);
   });
   return this;
 };
 
-Action.prototype.saveEach = function(models) {
-  var _this = this;
-  this._promise = this._promise.then(function() {
-    var promises = [];
-
-    models.forEach(function(model) {
-      var Model = db.model(model.name);
-      var data = _this._data[model.name];
-      var keys = model.uniqueKeys;
+Action.prototype.saveEach = function(modelMap) {
+  let that = this;
+  this[_promise] = this[_promise].then(() => {
+    let promises = [];
+    modelMap.forEach((keys, name) => {
+      let Model = db.model(name);
+      let data = that[_data][name];
       if (data instanceof Array)
-        data.forEach(function(d) {
+        data.forEach(d => {
           promises.push(buildSavePromise(Model, d, keys));
         });
       else
@@ -96,31 +90,31 @@ Action.prototype.saveEach = function(models) {
 };
 
 Action.prototype.format = function(formatFunc) {
-  var _this = this;
-  this._promise = this._promise.then(function() {
-    _this._data = formatFunc(_this._data);
+  let that = this;
+  this[_promise] = this[_promise].then(() => {
+    that[_data] = formatFunc(that[_data]);
   });
   return this;
 };
 
 Action.prototype.read = function(req) {
-  var _this = this;
-  this._promise = this._promise.then(function() {
-    var user = req.headers['X-BBStats-Authenticated-User'];
-    var decrypt = CommonKey.decrypt.bind(null, user);
-    return getRequestBody(req).then(decrypt).then(function(data) {
-      _this._data = data;
+  let that = this;
+  this[_promise] = this[_promise].then(() => {
+    let user = req.headers['X-BBStats-Authenticated-User'];
+    let decrypt = CommonKey.decrypt.bind(null, user);
+    return getRequestBody(req).then(decrypt).then(data => {
+      that[_data] = data;
     });
   });
   return this;
 };
 
 Action.prototype.write = function(res) {
-  var _this = this;
-  this._promise = this._promise.then(function() {
-    var status = 200;
-    var header = {'content-type': 'application/json; charset=utf-8'};
-    var content = JSON.stringify(_this._data) + '\n';
+  let that = this;
+  this[_promise] = this[_promise].then(() => {
+    let status = 200;
+    let header = {'content-type': 'application/json; charset=utf-8'};
+    let content = JSON.stringify(that[_data]) + '\n';
     res.writeHead(status, header);
     res.end(content);
   });
@@ -133,8 +127,8 @@ Action.prototype.write = function(res) {
 // -------------------------------------------------------------
 
 function getRequestBody(req) {
-  return new Promise(function(resolve ,reject) {
-    req.pipe(bl(function(err, data) {
+  return new Promise((resolve ,reject) => {
+    req.pipe(bl((err, data) => {
       err ? reject(err) : resolve(data.toString());
     }));
   });
@@ -142,15 +136,15 @@ function getRequestBody(req) {
 
 function buildSavePromise(Model, data, uniqueKeys) {
   if (!uniqueKeys || !uniqueKeys.length > 0) {
-    var doc = new Model(data);
+    let doc = new Model(data);
     return promisize(doc.save, doc);
   } else {
-    var conds = {};
-    uniqueKeys.forEach(function(key) {
+    let conds = {};
+    uniqueKeys.forEach(key => {
       conds[key] = data[key];
     });
-    var opts = {upsert: true, runValidators: true};
-    var query = Model.findOneAndUpdate.bind(Model, conds, data, opts);
+    let opts = {upsert: true, runValidators: true};
+    let query = Model.findOneAndUpdate.bind(Model, conds, data, opts);
     return promisize(query);
   }
 }

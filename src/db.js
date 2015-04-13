@@ -4,25 +4,25 @@
 // Modules
 // ------------------------------------------------------------
 
-var mongoose = require('mongoose');
-var Schema = mongoose.Schema;
+let mongoose = require('mongoose');
+let Schema = mongoose.Schema;
 
 // my module
-var config = require('./config');
+let config = require('./config');
 
 
 // ------------------------------------------------------------
 // Initialize
 // ------------------------------------------------------------
 
-var db = mongoose;
+let db = mongoose;
 
 
 // ------------------------------------------------------------
 // Models
 // ------------------------------------------------------------
 
-var gameScoreSchema = new Schema({
+let gameScoreSchema = new Schema({
   date: {type: Date, required: true, unique: true},
   ground: {type: String, required: true},
   result: {type: String, required: true},
@@ -47,9 +47,9 @@ var gameScoreSchema = new Schema({
     required: true,
   },
 });
-var GameScore = db.model('GameScore', gameScoreSchema);
+let GameScore = db.model('GameScore', gameScoreSchema);
 
-var atbatSchema = new Schema({
+let atbatSchema = new Schema({
   inning: {type: Number, require: true},
   rbi: {type: Number, require: true},
   runners: {
@@ -61,7 +61,7 @@ var atbatSchema = new Schema({
   result: {type: String, require: true},
   resultKind: {type: String, require: true}
 }, {_id: false});
-var battingStatSchema = new Schema({
+let battingStatSchema = new Schema({
   playerId: {type: Number, require: true},
   playerName: {type: String, require: true},
   order: {type: Number, require: true},
@@ -74,9 +74,9 @@ var battingStatSchema = new Schema({
   error: {type: Number, require: true},
   atbats: [atbatSchema]
 });
-var BattingStat = db.model('BattingStats', battingStatSchema);
+let BattingStat = db.model('BattingStats', battingStatSchema);
 
-var pitchingStatSchema = new Schema({
+let pitchingStatSchema = new Schema({
   playerId: {type: Number, require: true},
   playerName: {type: String, require: true},
   date: {type: Date, require: true},
@@ -92,13 +92,13 @@ var pitchingStatSchema = new Schema({
   error: {type: Number, require: true},
   result: {type: String, require: true},
 });
-var PitchingStat = db.model("PitchingStats", pitchingStatSchema);
+let PitchingStat = db.model("PitchingStats", pitchingStatSchema);
 
-var teamMemberSchema = new Schema({
+let teamMemberSchema = new Schema({
   playerId: {type: Number, require: true, unique: true},
   playerName: {type: String, require: true},
 });
-var TeamMember = db.model('TeamMember', teamMemberSchema);
+let TeamMember = db.model('TeamMember', teamMemberSchema);
 
 
 // ------------------------------------------------------------

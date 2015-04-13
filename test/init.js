@@ -4,9 +4,6 @@
 // Modules
 // ------------------------------------------------------------
 
-// polyfill
-var Promise = require('es6-promise').Promise;
-
 // my module
 var db = require('../src/db');
 
@@ -16,27 +13,27 @@ var db = require('../src/db');
 // ------------------------------------------------------------
 
 function init(uri, models) {
-  before(function(done) {
-    db.connect(uri, function(err) {
+  before(done => {
+    db.connect(uri, err => {
       if (err) throw err;
       removeAll(models).pure(done);
     });
   });
 
-  after(function(done) {
+  after(done => {
     db.disconnect(done);
   });
 
-  afterEach(function(done) {
+  afterEach(done => {
     removeAll(models).pure(done);
   });
 };
 
 function removeAll(models) {
-  var promises = models.map(function(model) {
-    return new Promise(function(resolve, reject) {
+  var promises = models.map(model => {
+    return new Promise((resolve, reject) => {
       var Model = db.model(model);
-      Model.remove(function(err) {
+      Model.remove(err => {
         err ? reject(err) : resolve();
       });
     });

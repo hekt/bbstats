@@ -4,7 +4,7 @@
 // Modules
 // ------------------------------------------------------------
 
-var util = require('util');
+let util = require('util');
 
 
 // ------------------------------------------------------------
@@ -34,7 +34,7 @@ function MissingParameterError(message) {
 // ------------------------------------------------------------
 
 function toHttpData(err) {
-  var statusCode, message;
+  let statusCode, message;
 
   switch (err.name) {
     case 'SyntaxError':

@@ -4,18 +4,15 @@
 // Modules
 // ------------------------------------------------------------
 
-var AES = require('crypto-js/aes');
-var enc = require('crypto-js').enc;
-
-// polyfill
-var Promise = require('es6-promise').Promise;
+let AES = require('crypto-js/aes');
+let enc = require('crypto-js').enc;
 
 // my module
-var config = require('./config');
-var myutil = require('./util');
-var promisize = myutil.promisize;
-var db = require('./db');
-var error = require('./error');
+let config = require('./config');
+let myutil = require('./util');
+let promisize = myutil.promisize;
+let db = require('./db');
+let error = require('./error');
 
 
 // ------------------------------------------------------------
@@ -38,30 +35,30 @@ CommonKey.register = registerCommonKey;
 // Database Models
 // ------------------------------------------------------------
 
-var Schema = db.Schema;
+let Schema = db.Schema;
 
 // Access Token
-var accessTokenSchema = new Schema({
+let accessTokenSchema = new Schema({
   token: {type: String, require: true}
 });
-var AccessTokenModel = db.model('AccessToken', accessTokenSchema);
+let AccessTokenModel = db.model('AccessToken', accessTokenSchema);
 
 // Shared Key
-var commonKeySchema = new Schema({
+let commonKeySchema = new Schema({
   user: {type: String, require: true},
   key: {type: String, require: true},
 });
-var CommonKeyModel = db.model('CommonKey', commonKeySchema);
+let CommonKeyModel = db.model('CommonKey', commonKeySchema);
 
 // ------------------------------------------------------------
 // AccessToken
 // ------------------------------------------------------------
 
 function verifyAccessToken(token) {
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
     if (!token) reject(new error.AuthorizationError('no token'));
 
-    AccessTokenModel.findOne({token: token}, function(err, doc) {
+    AccessTokenModel.findOne({token: token}, (err, doc) => {
       if (err) reject(err);
       if (!doc) reject(new error.AuthorizationError('invalid token'));
       resolve();
@@ -74,7 +71,7 @@ function issueAccessToken() {
 }
 
 function saveAccessToken(token) {
-  var dbToken = new AccessTokenModel({token: token});
+  let dbToken = new AccessTokenModel({token: token});
   return myutil.promisize(dbToken.save, dbToken);
 }
 
@@ -85,10 +82,10 @@ function saveAccessToken(token) {
 
 function decryptCommonKey(user, body) {
   function decipher(doc) {
-    return new Promise(function(resolve, reject) {
+    return new Promise((resolve, reject) => {
       if (!doc) return reject(new error.AuthorizationError('unknown user'));
       try {
-        var result = AES.decrypt(body, doc.key).toString(enc.Utf8);
+        let result = AES.decrypt(body, doc.key).toString(enc.Utf8);
         resolve(result);
       } catch (e) {
         if (e.message === 'Malformed UTF-8 data')
@@ -99,9 +96,9 @@ function decryptCommonKey(user, body) {
   }
   
   function verify(obj) {
-    return new Promise(function(resolve, reject) {
-      var now = Date.now();
-      var stamp = new Date(obj.timestamp);
+    return new Promise((resolve, reject) => {
+      let now = Date.now();
+      let stamp = new Date(obj.timestamp);
       if (Math.abs(now - stamp) > 1000 * 60 * 5)
         reject(new error.AuthorizationError('expired'));
       if (!obj.nonce)
@@ -113,12 +110,12 @@ function decryptCommonKey(user, body) {
   if (!user || !body)
     return Promise.reject(new error.AuthorizationError('missing parameters'));
   
-  var find = CommonKeyModel.findOne.bind(CommonKeyModel, {user: user});
+  let find = CommonKeyModel.findOne.bind(CommonKeyModel, {user: user});
   return promisize(find).then(decipher).then(JSON.parse).pierce(verify);
 }
 
 function registerCommonKey(user, key) {
-  var keyModel = new CommonKeyModel({user: user, key: key});
+  let keyModel = new CommonKeyModel({user: user, key: key});
   return promisize(keyModel.save, keyModel);
 }
 

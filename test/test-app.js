@@ -31,7 +31,7 @@ let CommonKey = require('../src/auth').CommonKey;
 
 let dbUri = 'mongodb://localhost/bbstats-testing';
 let dbModels = ['GameScore', 'BattingStats', 'PitchingStats',
-                'AccessToken', 'TeamMember'];
+                'CommonKey', 'TeamMember'];
 init(dbUri, dbModels);
 
   

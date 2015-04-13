@@ -27,7 +27,7 @@ let Action = function(data) {
 
 Action.prototype.getPromise = function() {
   let that = this;
-  return this[_promise].then(function() {
+  return this[_promise].then(() => {
     return that[_data];
   });
 };
@@ -45,7 +45,7 @@ Action.prototype.load = function(modelName, query, option) {
 
 Action.prototype.loadEach = function(queryMap) {
   let that = this;
-  this[_promise] = this[_promise].then(function() {
+  this[_promise] = this[_promise].then(() => {
     that[_data] = {};
     let promises = [];
     queryMap.forEach((q, name) => {
@@ -74,15 +74,15 @@ Action.prototype.saveEach = function(modelMap) {
   let that = this;
   this[_promise] = this[_promise].then(() => {
     let promises = [];
-    modelMap.forEach((keys, name) => {
+    modelMap.forEach((uniqueKeys, name) => {
       let Model = db.model(name);
       let data = that[_data][name];
       if (data instanceof Array)
         data.forEach(d => {
-          promises.push(buildSavePromise(Model, d, keys));
+          promises.push(buildSavePromise(Model, d, uniqueKeys));
         });
       else
-        promises.push(buildSavePromise(Model, data, keys));
+        promises.push(buildSavePromise(Model, data, uniqueKeys));
     });
     return Promise.all(promises);
   });

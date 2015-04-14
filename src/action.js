@@ -92,7 +92,11 @@ Action.prototype.saveEach = function(modelMap) {
 Action.prototype.format = function(formatFunc) {
   let that = this;
   this[_promise] = this[_promise].then(() => {
+    let result = formatFunc(that[_data]);
+    if (result instanceof Promise)
+      return result.then(data => { that[_data] = data; });
     that[_data] = formatFunc(that[_data]);
+    return that[_data];
   });
   return this;
 };

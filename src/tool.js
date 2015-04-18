@@ -39,6 +39,42 @@ tool.registerMembers = function(members) {
   return Promise.all(promises);
 };
 
+tool.addPlayerName = function() {
+  let Model = db.model('TeamMember');
+  let dbQuery = Model.find();
+  return promisize(dbQuery.exec, dbQuery).then(docs => {
+    let dic = {};
+    docs.forEach(function(doc) {
+      dic[doc.playerId] = doc.playerName;
+    });
+    let promises = [
+      addPlayerNameInternal(dic, 'BattingStats'),
+      addPlayerNameInternal(dic, 'PitchingStats'),
+    ];
+    return Promise.all(promises);
+  }).then(() => {
+    console.log('complete');
+  }).catch(err => {
+    console.error(err, err.stack);
+  });
+};
+
+function addPlayerNameInternal(nameDic, modelName) {
+  let Model = db.model(modelName);
+  let dbQuery = Model.find();
+  return promisize(dbQuery.exec, dbQuery).then(function(docs) {
+    let promises = [];
+    docs.forEach(function(doc) {
+      doc.playerName = nameDic[doc.playerId];
+      let promise = new Promise((resolve, reject) => {
+        doc.save((err) => { err ? reject(err) : resolve(); });
+      });
+      promises.push(promise);
+    });
+    return Promise.all(promises);
+  });
+}
+
 
 // ------------------------------------------------------------
 // Export

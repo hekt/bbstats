@@ -79,6 +79,7 @@ let BattingStat = db.model('BattingStats', battingStatSchema);
 let pitchingStatSchema = new Schema({
   playerId: {type: Number, require: true},
   playerName: {type: String, require: true},
+  order: {type: Number, require: true},
   date: {type: Date, require: true},
   ground: {type: String, require: true},
   out: {type: Number, require: true},

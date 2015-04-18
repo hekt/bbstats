@@ -222,7 +222,7 @@ function checkBattingResultsKeys(data) {
   });
 }
 function checkPitchingResultsKeys(data) {
-  let keys = ['playerId', 'playerName', 'date', 'ground', 'out', 'bf',
+  let keys = ['playerId', 'playerName', 'order', 'date', 'ground', 'out', 'bf',
               'run', 'erun', 'so', 'bb', 'h', 'hr', 'error', 'result'];
   data.forEach(pitcher => {
     pitcher.should.have.keys(keys);
@@ -290,8 +290,8 @@ function checkBattingStatsKeysDB(len) {
   });
 }
 function checkPitchingStatsKeysDB(len) {
-  let keys = ['playerId', 'playerName', 'date', 'ground', 'out', 'bf', 'run',
-              'erun', 'so', 'bb', 'h', 'hr', 'error', 'result'];
+  let keys = ['playerId', 'playerName', 'order', 'date', 'ground', 'out',
+              'bf', 'run', 'erun', 'so', 'bb', 'h', 'hr', 'error', 'result'];
   let dbQuery = db.model('PitchingStats').find(null, '-_id -__v');
   return promisize(dbQuery.exec, dbQuery).then(docs => {
     docs.length.should.equal(len);
